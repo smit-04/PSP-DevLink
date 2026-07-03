@@ -6,7 +6,7 @@ Milestone 2
 
 Status
 
-Implementation Complete (Pending Commit & Push)
+Implementation Complete 
 
 ---
 
