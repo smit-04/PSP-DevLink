@@ -15,6 +15,7 @@ add_subdirectory(
 
 add_executable(PSPDevLinkDesktop
     src/main.cpp
+    src/transport_usb.cpp
 )
 
 target_include_directories(PSPDevLinkDesktop

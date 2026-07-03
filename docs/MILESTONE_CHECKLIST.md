@@ -12,6 +12,20 @@ Use this checklist before declaring any milestone complete.
 
 ---
 
+## Pre-Implementation Verification
+
+Before implementation begins, verify the following:
+
+ Desktop build succeeds
+ PSP build succeeds
+ Shared modules compile successfully in both targets
+ No new compiler warnings introduced (or all new warnings documented)
+ Existing automated verification still passes (if applicable)
+
+Do not begin implementation until these checks have been completed successfully.
+
+---
+
 ## Implementation
 
 * [ ] Required functionality implemented

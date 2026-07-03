@@ -233,4 +233,34 @@ Separating the protocol into an independent module establishes a single authorit
 
 ---
 
+# ADR-013
+
+Title
+
+Transport Implementation Ownership
+
+Decision
+
+The shared protocol module shall expose only the public transport interface.
+
+Platform-specific transport implementations shall reside within their respective applications.
+
+Desktop:
+
+* `apps/desktop/src/transport_usb.cpp`
+
+PSP:
+
+* `apps/psp/src/transport_usb.c`
+
+The shared protocol module is implemented as a CMake INTERFACE library until shared protocol source files are introduced in future milestones.
+
+Reason
+
+Transport implementations are inherently platform-specific and should not reside within the shared protocol module.
+
+Separating the transport interface from its implementations preserves protocol independence, prevents platform-specific code from entering shared components, improves maintainability, and allows additional transport backends to be introduced without modifying the shared communication interfaces.
+
+---
+
 End of Document

@@ -14,41 +14,42 @@ PSP DevLink
 
 # Current Milestone
 
-Milestone 3 — Communication Foundation
+Milestone 4 — USB Transport Implementation
 
-Status: IMPLEMENTATION COMPLETE (Documentation & Git Verification Pending)
+Status: IN PROGRESS
 
 ---
 
 # Objective
 
-Design and implement the shared communication foundation used by both the Desktop Companion and the PSP application.
+Implement the first transport backend that enables reliable raw byte communication between the Desktop Companion and the PSP application while preserving the transport abstraction established in the previous milestone.
 
-This milestone establishes the protocol architecture and shared interfaces without implementing runtime communication or user-facing functionality.
+This milestone focuses exclusively on transport implementation and does not introduce protocol processing or user-facing functionality.
 
 ---
 
 # Milestone Summary
 
-Implementation completed during this milestone includes:
+Completed during this milestone:
 
-* shared protocol module
-* protocol architecture documentation
-* protocol versioning framework
-* message definitions
-* packet header definition
-* transport abstraction
-* Desktop protocol library integration
-* Desktop stub implementation
-* PSP stub implementation
+* platform-specific transport architecture
+* shared transport interface
+* Desktop transport backend integration
+* PSP transport backend integration
 * Desktop build verification
 * PSP build verification
+* transport implementation refactor
 
-No runtime communication has been implemented.
+Current implementation still provides placeholder transport behavior while USB functionality is under development.
 
-No USB functionality has been implemented.
+Not yet implemented:
 
-No user interface functionality has been implemented.
+* USB transport communication
+* protocol handshake
+* packet serialization
+* message processing
+* session management
+* runtime communication
 
 ---
 
@@ -105,13 +106,14 @@ Repository Status
 * Milestone 0 completed
 * Milestone 1 architecture completed
 * Milestone 2 repository restructuring completed
-* Milestone 3 communication foundation implemented
-* Desktop protocol library integrated
-* Shared protocol module established
+* Milestone 3 communication foundation completed
+* Milestone 4 transport architecture refactor completed
+* Shared protocol module converted to an INTERFACE library
+* Platform-specific transport backends established
 * Desktop build verified
 * PSP build verified
-* Documentation update in progress
-* Pending final commit and push
+* USB transport implementation in progress
+* Pending commit and push
 
 ---
 
@@ -142,9 +144,15 @@ These documents define the architectural direction of the project and remain the
 PSP-DevLink/
 ├── apps/
 │   ├── desktop/
+│   │   └── src/
+│   │       └── transport_usb.cpp
 │   └── psp/
+│       └── src/
+│           └── transport_usb.c
 ├── shared/
 │   └── protocol/
+│       ├── include/
+│       └── CMakeLists.txt
 ├── docs/
 │   └── architecture/
 ├── scripts/
@@ -160,15 +168,11 @@ Implemented:
 
 * Production repository structure
 * Independent Desktop and PSP build systems
-* Shared protocol module
-* Protocol public interfaces
-* Protocol versioning framework
-* Packet definitions
-* Message definitions
+* Shared protocol interfaces
 * Transport abstraction
-* Desktop protocol library
-* Desktop stub transport
-* PSP stub transport
+* Platform-specific Desktop transport backend
+* Platform-specific PSP transport backend
+* Shared protocol INTERFACE library
 * Verified Desktop build
 * Verified PSP build
 
@@ -176,6 +180,9 @@ Not Yet Implemented:
 
 * USB communication
 * Runtime protocol exchange
+* Protocol handshake
+* Packet serialization
+* Message processing
 * Desktop services
 * PSP graphics
 * Rendering engine
@@ -190,27 +197,24 @@ Not Yet Implemented:
 Verified:
 
 * Desktop Companion builds successfully using CMake.
-* Shared protocol library builds successfully.
+* Shared protocol interface integrates successfully with the Desktop build.
 * PSP application builds successfully using PSPDEV and PSPSDK.
 * PSP EBOOT generation verified.
+* Platform-specific transport backends compile successfully on both targets.
 
 ---
 
 # Known Limitations
 
-Current PSP build configuration places generated object files for shared sources within the shared source tree.
+The transport backends currently contain placeholder implementations.
 
-This is acceptable for Milestone 3 and should be revisited during a future build-system improvement milestone.
+USB initialization, byte transmission, byte reception, and transport shutdown will be implemented during the remainder of Milestone 4.
 
 ---
 
-# Next Milestone
+# Next Task
 
-Milestone 4 — USB Transport Layer
-
-Objective:
-
-Implement the first transport implementation using USB while preserving the protocol abstraction established during Milestone 3.
+Complete the USB transport backend implementation for both Desktop and PSP while preserving transport independence from the protocol layer.
 
 ---
 

@@ -1,8 +1,15 @@
-add_library(pspdevlink_protocol STATIC
-    src/transport_stub.c
-)
+# Shared protocol module
+#
+# This module currently exports only the public protocol interfaces.
+# Platform-specific transport implementations are compiled by each
+# application (Desktop and PSP) rather than by this module.
+#
+# Shared protocol source files (packet serialization, framing, message
+# processing, etc.) will be added in future milestones.
+
+add_library(pspdevlink_protocol INTERFACE)
 
 target_include_directories(pspdevlink_protocol
-    PUBLIC
+    INTERFACE
         include
 )
