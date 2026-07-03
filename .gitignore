@@ -1,12 +1,23 @@
-# Object files
+# -----------------------------
+# PSP build artifacts
+# -----------------------------
 *.o
-
-# PSP binaries
 *.elf
 *.prx
 *.PBP
 *.SFO
+*_strip.elf
 
-# Temporary files
+# -----------------------------
+# Desktop build artifacts
+# -----------------------------
+apps/desktop/build/
+compile_commands.json
+
+# -----------------------------
+# Editor / OS
+# -----------------------------
 *~
 *.swp
+.vscode/
+.DS_Store

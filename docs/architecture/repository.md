@@ -6,11 +6,11 @@ The Repository Architecture document defines how the PSP DevLink repository is o
 
 Its objectives are to:
 
-- describe the purpose of each top-level directory
-- establish repository organization guidelines
-- maintain a predictable project structure
-- support long-term maintainability
-- ensure future contributors can navigate the repository without relying on external documentation
+* describe the purpose of each top-level directory
+* establish repository organization guidelines
+* maintain a predictable project structure
+* support long-term maintainability
+* ensure future contributors can navigate the repository without relying on external documentation
 
 This document describes the current repository structure. Future repository changes should be documented only after they have been implemented and verified.
 
@@ -27,10 +27,14 @@ Current structure:
 ```text
 PSP-DevLink/
 │
+├── apps/
+│   ├── desktop/
+│   └── psp/
 ├── docs/
-├── src/
+│   └── architecture/
+├── shared/
+├── scripts/
 ├── .gitignore
-├── Makefile
 └── README.md
 ```
 
@@ -40,17 +44,32 @@ As the project evolves, additional directories may be introduced. Structural cha
 
 ## Top-Level Directories
 
+### apps/
+
+The `apps/` directory contains the project's executable applications.
+
+Current applications include:
+
+* `desktop/` — Desktop Companion
+* `psp/` — PSP application
+
+Each application owns its own source code, build configuration, and entry point.
+
+Applications remain independently buildable using their respective build systems.
+
+---
+
 ### docs/
 
 The `docs/` directory contains all project documentation.
 
 This includes:
 
-- project governance documents
-- architecture documentation
-- engineering decisions
-- milestone handoff documents
-- project state information
+* project governance documents
+* architecture documentation
+* engineering decisions
+* milestone handoff documents
+* project state information
 
 Architecture documentation is maintained under `docs/architecture/`.
 
@@ -58,30 +77,48 @@ Documentation evolves alongside implementation and serves as the primary enginee
 
 ---
 
-### src/
+### shared/
 
-The `src/` directory contains the current PSP application source code.
+The `shared/` directory contains components intended to be shared between multiple applications.
 
-During the early milestones, all PSP source files are located here.
+Examples include:
 
-If the repository is reorganized in a future milestone, this document will be updated after the new structure has been implemented and verified.
+* protocol definitions
+* shared interfaces
+* common utilities
+* shared constants
+
+Shared components should remain platform-independent wherever practical.
 
 ---
 
-## Build Files
+### scripts/
 
-### Makefile
+The `scripts/` directory contains development and automation scripts.
 
-The repository uses a top-level `Makefile` as the primary build entry point for the PSP application.
+Typical responsibilities include:
 
-The Makefile coordinates the PSP build process through the PSP SDK and PSPSDK toolchain. Its responsibilities include:
+* developer utilities
+* build automation
+* release automation
+* verification scripts
 
-- compiling source files
-- linking the application
-- generating the final `EBOOT.PBP`
-- providing a consistent build interface for developers
+Scripts should support development workflows without containing application logic.
 
-The Makefile should contain build configuration only. Application logic, project configuration, and feature implementation must remain within the source code.
+---
+
+## Build Organization
+
+Each application owns its own build system.
+
+Current build systems are:
+
+* `apps/psp/` — GNU Make with PSPDEV / PSPSDK
+* `apps/desktop/` — CMake
+
+This separation keeps applications independently buildable while allowing each platform to use the tooling most appropriate for its environment.
+
+Build configuration should remain separate from application implementation.
 
 ---
 
@@ -93,11 +130,11 @@ The `README.md` file serves as the primary entry point for the repository.
 
 It should provide:
 
-- a high-level project introduction
-- build prerequisites
-- setup instructions
-- links to important documentation
-- project status
+* a high-level project introduction
+* build prerequisites
+* setup instructions
+* links to important documentation
+* project status
 
 The README should remain concise and direct readers to detailed documentation where appropriate.
 
@@ -109,11 +146,11 @@ The `.gitignore` file defines files and directories that must not be committed t
 
 Typical ignored content includes:
 
-- build artifacts
-- temporary files
-- editor-specific configuration
-- generated binaries
-- operating system metadata
+* build artifacts
+* temporary files
+* editor-specific configuration
+* generated binaries
+* operating system metadata
 
 Repository-specific source code and documentation must never be ignored unintentionally.
 
@@ -125,11 +162,11 @@ As PSP DevLink grows, the repository structure may evolve to better separate con
 
 Potential additions include:
 
-- dedicated desktop application directories
-- shared protocol definitions
-- automated test directories
-- development tools
-- project scripts
+* automated test directories
+* development tools
+* continuous integration configuration
+* release packaging
+* additional shared libraries
 
 Repository changes should be introduced only when justified by project requirements and documented after they have been implemented and verified.
 
@@ -139,13 +176,14 @@ Repository changes should be introduced only when justified by project requireme
 
 The following principles govern repository organization:
 
-- Each top-level directory must have a clearly defined purpose.
-- Documentation should evolve alongside implementation.
-- Source code should remain separated from project documentation.
-- Build artifacts must not be committed.
-- New top-level directories require corresponding documentation updates.
-- Repository organization changes require corresponding documentation updates.
-- Documentation must accurately reflect the implemented repository structure.
+* Each top-level directory must have a clearly defined purpose.
+* Documentation should evolve alongside implementation.
+* Applications should remain independently buildable.
+* Shared code should remain isolated from application-specific implementations.
+* Build artifacts must not be committed.
+* New top-level directories require corresponding documentation updates.
+* Repository organization changes require corresponding documentation updates.
+* Documentation must accurately reflect the implemented repository structure.
 
 ---
 

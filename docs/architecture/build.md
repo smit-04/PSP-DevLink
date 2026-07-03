@@ -6,10 +6,10 @@ The Build Architecture defines how PSP DevLink components are built, organized, 
 
 Its objectives are to:
 
-- provide reproducible builds
-- maintain independent build processes for project components
-- separate build configuration from application logic
-- support future repository expansion without disrupting existing workflows
+* provide reproducible builds
+* maintain independent build processes for project components
+* separate build configuration from application logic
+* support future repository expansion without disrupting existing workflows
 
 This document defines build architecture rather than build implementation details.
 
@@ -19,26 +19,55 @@ This document defines build architecture rather than build implementation detail
 
 The build system should be:
 
-- reproducible
-- deterministic
-- modular
-- easy to understand
-- easy to extend
-- independently buildable
+* reproducible
+* deterministic
+* modular
+* easy to understand
+* easy to extend
+* independently buildable
 
 ---
 
 ## Current Build Architecture
 
-The current repository builds the PSP application using:
+The repository currently contains two independent application build systems.
 
-- PSP SDK
-- PSPSDK
-- GNU Make
+### PSP Application
 
-The repository currently exposes a single top-level `Makefile` that serves as the primary build entry point.
+Located in:
 
-The build process produces a PSP executable package (`EBOOT.PBP`) suitable for deployment to the target device.
+```text
+apps/psp/
+```
+
+Uses:
+
+* PSPDEV
+* PSPSDK
+* GNU Make
+
+The PSP build process produces a PSP executable package (`EBOOT.PBP`) suitable for deployment to the target device.
+
+---
+
+### Desktop Companion
+
+Located in:
+
+```text
+apps/desktop/
+```
+
+Uses:
+
+* CMake
+* GNU C++
+
+The Desktop Companion is built independently from the PSP application and serves as the host-side application.
+
+---
+
+Each application owns its own build configuration while remaining independent of the other application's build process.
 
 ---
 
@@ -46,11 +75,11 @@ The build process produces a PSP executable package (`EBOOT.PBP`) suitable for d
 
 The build system is responsible for:
 
-- compiling source code
-- resolving project dependencies
-- linking application binaries
-- generating build artifacts
-- reporting build failures
+* compiling source code
+* resolving project dependencies
+* linking application binaries
+* generating build artifacts
+* reporting build failures
 
 The build system must not contain application logic or feature-specific behavior.
 
@@ -60,11 +89,11 @@ The build system must not contain application logic or feature-specific behavior
 
 The build architecture follows these principles:
 
-- build configuration remains separate from application code
-- each application should remain independently buildable
-- builds should be reproducible on a clean development environment
-- warnings should be investigated before a build is considered successful
-- build outputs should remain deterministic for identical source revisions
+* build configuration remains separate from application code
+* each application remains independently buildable
+* builds should be reproducible on a clean development environment
+* warnings should be investigated before a build is considered successful
+* build outputs should remain deterministic for identical source revisions
 
 ---
 
@@ -72,11 +101,11 @@ The build architecture follows these principles:
 
 As PSP DevLink expands, the build architecture may include:
 
-- independent desktop application builds
-- shared build configuration
-- automated verification
-- continuous integration
-- release packaging
+* shared build utilities
+* automated verification
+* continuous integration
+* release packaging
+* cross-platform build automation
 
 Future build changes should preserve reproducibility and be documented only after they have been implemented and verified.
 
@@ -86,10 +115,11 @@ Future build changes should preserve reproducibility and be documented only afte
 
 The build architecture follows these constraints:
 
-- Build scripts contain build logic only.
-- Application behavior must never be implemented in build scripts.
-- Build systems should remain independent wherever practical.
-- Build artifacts must not be committed to version control.
+* Build scripts contain build logic only.
+* Application behavior must never be implemented in build scripts.
+* Each application owns its own build configuration.
+* Applications should remain independently buildable.
+* Build artifacts must not be committed to version control.
 
 These constraints preserve maintainability and simplify future expansion.
 
@@ -99,11 +129,11 @@ These constraints preserve maintainability and simplify future expansion.
 
 This document does not define:
 
-- compiler flags
-- optimization levels
-- CI implementation
-- release workflow
-- packaging implementation
+* compiler flags
+* optimization levels
+* CI implementation
+* release workflow
+* packaging implementation
 
 These topics belong to implementation documentation.
 
