@@ -1,0 +1,12 @@
+# Object files
+*.o
+
+# PSP binaries
+*.elf
+*.prx
+*.PBP
+*.SFO
+
+# Temporary files
+*~
+*.swp
