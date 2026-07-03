@@ -109,3 +109,99 @@ The repository is the source of truth.
 Chat history must never be required to understand the project.
 
 All engineering decisions and project state must be documented inside the repository.
+
+---
+
+# ADR-007
+
+Title
+
+Desktop Application Architecture
+
+Decision
+
+The Desktop Companion shall follow a layered architecture consisting of:
+
+- UI
+- Application Layer
+- Services Layer
+- Transport & Protocol Layer
+- Platform Integration Layer
+
+Reason
+
+A layered architecture separates responsibilities, minimizes coupling, improves maintainability, and allows platform-specific functionality to remain isolated from application logic.
+
+---
+
+# ADR-008
+
+Title
+
+PSP Application Architecture
+
+Decision
+
+The PSP application shall follow a single-threaded, frame-driven architecture centered around a deterministic main loop.
+
+Reason
+
+A deterministic execution model simplifies debugging, preserves predictable rendering performance, and aligns with the resource constraints of the PSP platform.
+
+---
+
+# ADR-009
+
+Title
+
+Communication Architecture
+
+Decision
+
+PSP DevLink shall use a client-server communication model.
+
+The Desktop Companion is the authoritative source of host system information.
+
+The PSP acts as a presentation-oriented client.
+
+Reason
+
+This architecture establishes clear ownership of application data, minimizes synchronization complexity, and isolates communication from presentation logic.
+
+---
+
+# ADR-010
+
+Title
+
+Repository Architecture
+
+Decision
+
+Repository organization shall evolve alongside implementation.
+
+Documentation must accurately reflect the implemented repository structure and serve as the primary engineering reference.
+
+Reason
+
+Keeping repository documentation synchronized with implementation ensures that the repository remains understandable without relying on external context or chat history.
+
+---
+
+# ADR-011
+
+Title
+
+Architecture-First Development
+
+Decision
+
+Major architectural decisions shall be documented and reviewed before feature implementation begins.
+
+Reason
+
+Establishing architecture before implementation reduces redesign effort, provides consistent engineering direction, and improves long-term maintainability.
+
+---
+
+End of Document

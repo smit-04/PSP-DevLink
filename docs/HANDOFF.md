@@ -2,92 +2,105 @@
 
 Milestone
 
-Milestone 0
+Milestone 1
 
 Status
 
-Completed
+Completed (Pending Commit)
 
 ---
 
 # Summary
 
-The development environment has been fully verified.
+Milestone 1 established the complete software architecture for PSP DevLink.
 
-The repository is synchronized with GitHub.
+The repository now contains a documented architectural foundation covering the repository structure, Desktop Companion, PSP application, communication model, system lifecycle, build architecture, and engineering standards.
 
-Development may now proceed without additional environment setup.
-
----
-
-# Verified Components
-
-- WSL2
-- Ubuntu
-- Git
-- GitHub
-- SSH Authentication
-- PSP Toolchain
-- PSPSDK
-- GNU Make
-- VS Code Remote WSL
-- PPSSPP
+No production features were implemented during this milestone.
 
 ---
 
-# Runtime Verification
+# Deliverables
+
+Architecture documentation completed:
+
+- Repository Architecture
+- Desktop Application Architecture
+- PSP Application Architecture
+- Communication Architecture
+- System Lifecycle
+- Build Architecture
+- Coding Standards
+- Architecture Overview
+
+Project documentation updated:
+
+- PROJECT_STATE.md
+- HANDOFF.md
+- DECISION_LOG.md
+
+---
+
+# Architecture Decisions
+
+The following architectural decisions are now established:
+
+- Layered architecture for the Desktop Companion.
+- Single-threaded frame-driven architecture for the PSP application.
+- Client-server communication model.
+- Desktop Companion as the authoritative source of host system information.
+- Independent application lifecycle.
+- Architecture-first development before feature implementation.
+
+These decisions should be considered stable unless intentionally revised through a future Architecture Decision Record (ADR).
+
+---
+
+# Repository Status
 
 Verified:
 
-- Application builds
-- EBOOT.PBP generated
-- Application launches in PPSSPP
-- Debug text renders
-- Controller input works
-- Application exits cleanly
+- Development environment remains valid (Milestone 0).
+- Architecture documentation completed.
+- Documentation reviewed for consistency.
+- Architecture documents staged for commit.
 
----
+Pending:
 
-# Lessons Learned
-
-## VS Code
-
-Always open the project from WSL:
-
-code .
-
-Never edit through:
-
-\\wsl$
-
----
-
-## File Ownership
-
-Never use sudo inside the repository unless specifically required.
-
-Repository files should always be owned by the development user.
-
----
-
-## Git
-
-Authentication uses SSH.
-
-Repository remote is configured.
+- Milestone 1 Git commit.
+- Push to GitHub.
 
 ---
 
 # Next Milestone
 
-Milestone 1
+Milestone 2 — Repository Implementation
 
 Goals:
 
-- Define repository architecture
-- Define software architecture
-- Define module boundaries
-- Define build architecture
-- Define documentation structure
+- Implement the production repository structure.
+- Establish the Desktop Companion project.
+- Establish the PSP application project structure.
+- Create shared modules where required.
+- Implement foundational infrastructure without adding end-user features.
 
-No feature implementation should begin before the architecture is approved.
+Implementation should follow the architecture approved during Milestone 1.
+
+---
+
+# Notes for the Next Engineer
+
+Before implementing new functionality:
+
+- Read `PROJECT_FOUNDATION.md`.
+- Read `PROJECT_STATE.md`.
+- Review all documents under `docs/architecture/`.
+- Review `DECISION_LOG.md`.
+
+The repository documentation is the authoritative source of project architecture.
+
+Implementation should conform to the documented architecture unless a new ADR formally changes the design.
+
+---
+
+End of Document
