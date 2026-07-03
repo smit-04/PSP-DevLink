@@ -154,11 +154,11 @@ Not Yet Implemented:
 
 # Next Milestone
 
-Milestone 2 — Repository Implementation
+Milestone 2 — Project Foundation Implementation
 
 Objective:
 
-Begin implementation by creating the production repository structure and foundational project modules defined during Milestone 1.
+Implement the production project structure, build systems, and foundational modules defined during Milestone 1 without implementing end-user features.
 
 ---
 

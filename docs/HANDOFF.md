@@ -74,17 +74,21 @@ Pending:
 
 # Next Milestone
 
-Milestone 2 — Repository Implementation
+Milestone 2 — Project Foundation Implementation
 
 Goals:
 
-- Implement the production repository structure.
-- Establish the Desktop Companion project.
-- Establish the PSP application project structure.
-- Create shared modules where required.
-- Implement foundational infrastructure without adding end-user features.
+- Create the production repository structure.
+- Establish the Desktop Companion project skeleton.
+- Establish the PSP application project skeleton.
+- Create the shared module structure.
+- Organize the build system.
+- Define public module interfaces.
+- Verify that every project builds successfully.
 
 Implementation should follow the architecture approved during Milestone 1.
+
+No end-user features should be implemented during this milestone.
 
 ---
 
