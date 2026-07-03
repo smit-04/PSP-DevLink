@@ -26,6 +26,11 @@ Use this checklist before declaring any milestone complete.
 * [ ] Runtime verified (if applicable)
 * [ ] Warnings reviewed
 * [ ] Verification evidence collected
+* [ ] Public interfaces reviewed for future compatibility
+* [ ] Implementation matches documented architecture
+* [ ] Desktop build verified
+* [ ] PSP build verified
+* [ ] Milestone names and documentation are consistent
 
 ---
 

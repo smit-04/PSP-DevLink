@@ -204,4 +204,33 @@ Establishing architecture before implementation reduces redesign effort, provide
 
 ---
 
+# ADR-012
+
+Title
+
+Shared Protocol Module
+
+Decision
+
+The communication layer shall be implemented as an independent shared protocol module.
+
+The protocol module owns:
+
+- protocol versioning
+- message definitions
+- packet definitions
+- transport abstraction
+
+Platform-specific implementations (Desktop and PSP) shall consume the same public protocol interfaces.
+
+Desktop integrates the protocol through a dedicated CMake library target.
+
+The PSP integrates the same shared sources through the PSP SDK build system.
+
+Reason
+
+Separating the protocol into an independent module establishes a single authoritative communication interface, minimizes duplication between applications, and allows transport implementations to evolve independently from application logic while respecting the differing build systems used by each platform.
+
+---
+
 End of Document

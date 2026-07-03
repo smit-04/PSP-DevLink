@@ -2,56 +2,70 @@
 
 Milestone
 
-Milestone 2
+Milestone 3 — Communication Foundation
 
 Status
 
-Implementation Complete 
+Implementation Complete (Documentation Finalization)
 
 ---
 
 # Summary
 
-Milestone 2 implemented the production project foundation defined during Milestone 1.
+Milestone 3 establishes the shared communication foundation used by both the Desktop Companion and the PSP application.
 
-The repository has been restructured into its long-term layout, independent application build systems have been established, and the initial Desktop Companion and PSP project skeletons have been verified.
+The protocol architecture, shared public interfaces, transport abstraction, and build integration have been implemented and verified.
 
-No end-user runtime features were implemented during this milestone.
+This milestone intentionally does **not** implement runtime communication, USB functionality, graphics, rendering, desktop services, or other end-user features.
 
 ---
 
 # Deliverables
 
-Repository implementation completed:
+Communication foundation implemented:
 
-* Production repository structure
-* Desktop Companion project skeleton
-* PSP application project skeleton
-* Shared module structure
-* Development scripts directory
-* Independent application build systems
-* Repository cleanup
+* Shared protocol module
+* Protocol architecture documentation
+* Protocol versioning framework
+* Message definitions
+* Packet header definition
+* Transport abstraction
+* Desktop transport stub
+* PSP transport stub
+
+Build integration completed:
+
+* Desktop protocol library
+* Desktop CMake integration
+* PSP shared protocol integration
 
 Verification completed:
 
-* PSP application builds successfully.
 * Desktop Companion builds successfully.
-* Desktop Companion executable launches successfully.
+* Shared protocol library builds successfully.
+* PSP application builds successfully.
+* PSP EBOOT generation verified.
 
-Project documentation updated:
+Documentation updated:
 
-* Repository Architecture
-* Build Architecture
+* protocol.md
 * PROJECT_STATE.md
 * HANDOFF.md
+* MILESTONE_CHECKLIST.md
 
 ---
 
 # Architecture Decisions
 
-The architectural decisions established during Milestone 1 remain unchanged.
+Milestone 3 introduces one architectural refinement.
 
-Milestone 2 implements the previously approved architecture without introducing new architectural decisions.
+The shared communication layer is implemented as an independent protocol module.
+
+Desktop consumes the protocol through its own CMake library target.
+
+The PSP application consumes the same shared source through the PSP SDK Make build.
+
+Although the build integration differs between platforms, both applications share the same public protocol interfaces.
 
 ---
 
@@ -59,11 +73,17 @@ Milestone 2 implements the previously approved architecture without introducing 
 
 Verified:
 
-* Development environment remains valid.
-* PSP application builds successfully.
+* Repository structure matches documented architecture.
+* Shared protocol module established.
+* Desktop protocol library verified.
 * Desktop Companion builds successfully.
-* Repository structure matches the documented architecture.
-* Documentation updated to reflect the implemented repository structure.
+* PSP application builds successfully.
+* Shared protocol interfaces compile successfully.
+
+Known limitation:
+
+* The PSP SDK currently emits object files for shared sources into the shared source directory.
+* This behavior is accepted for Milestone 3 and should be revisited during a future build-system improvement milestone.
 
 Pending:
 
@@ -75,16 +95,15 @@ Pending:
 
 # Next Milestone
 
-Milestone 3 — Shared Infrastructure
+Milestone 4 — USB Transport Layer
 
 Goals:
 
-* Define shared public interfaces.
-* Establish the protocol foundation.
-* Implement common infrastructure shared by the Desktop Companion and PSP application.
-* Create module interfaces while continuing to avoid end-user runtime features where possible.
-
-Implementation should continue following the architecture approved during Milestone 1.
+* Implement the first USB transport.
+* Preserve the protocol abstraction established during Milestone 3.
+* Implement protocol initialization.
+* Begin runtime communication between Desktop and PSP.
+* Continue avoiding user-interface functionality until communication has been verified.
 
 ---
 
@@ -94,12 +113,14 @@ Before implementing new functionality:
 
 * Read `PROJECT_FOUNDATION.md`.
 * Read `PROJECT_STATE.md`.
+* Read `DECISION_LOG.md`.
 * Review all documents under `docs/architecture/`.
-* Review `DECISION_LOG.md`.
 
 The repository remains the authoritative source of project documentation.
 
-Future implementation should follow the documented architecture unless a new Architecture Decision Record (ADR) formally revises the design.
+The protocol interfaces established during Milestone 3 should remain stable unless a documented architectural decision requires modification.
+
+Verify every meaningful change before considering implementation complete.
 
 ---
 

@@ -9,9 +9,13 @@
 *_strip.elf
 
 # -----------------------------
-# Desktop build artifacts
+# Desktop / CMake build artifacts
 # -----------------------------
+build/
 apps/desktop/build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
 compile_commands.json
 
 # -----------------------------

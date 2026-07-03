@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Version: 3.0
+Version: 4.0
 
 Status: ACTIVE
 
@@ -14,33 +14,41 @@ PSP DevLink
 
 # Current Milestone
 
-Milestone 2 — Project Foundation Implementation
+Milestone 3 — Communication Foundation
 
-Status: COMPLETED
+Status: IMPLEMENTATION COMPLETE (Documentation & Git Verification Pending)
+
 ---
 
 # Objective
 
-Implement the production repository structure, independent build systems, and foundational project layout defined during Milestone 1 without implementing end-user features.
+Design and implement the shared communication foundation used by both the Desktop Companion and the PSP application.
+
+This milestone establishes the protocol architecture and shared interfaces without implementing runtime communication or user-facing functionality.
 
 ---
 
 # Milestone Summary
 
-Milestone 2 restructures the repository into its long-term production layout.
-
 Implementation completed during this milestone includes:
 
-* production repository structure
-* Desktop Companion project skeleton
-* PSP application migration
-* independent build systems
-* shared module structure
-* development scripts directory
-* repository cleanup
-* build verification
+* shared protocol module
+* protocol architecture documentation
+* protocol versioning framework
+* message definitions
+* packet header definition
+* transport abstraction
+* Desktop protocol library integration
+* Desktop stub implementation
+* PSP stub implementation
+* Desktop build verification
+* PSP build verification
 
-No end-user runtime features have been implemented during this milestone.
+No runtime communication has been implemented.
+
+No USB functionality has been implemented.
+
+No user interface functionality has been implemented.
 
 ---
 
@@ -96,9 +104,12 @@ Repository Status
 
 * Milestone 0 completed
 * Milestone 1 architecture completed
-* Milestone 2 repository restructuring implemented
-* PSP project build verified
-* Desktop Companion build verified
+* Milestone 2 repository restructuring completed
+* Milestone 3 communication foundation implemented
+* Desktop protocol library integrated
+* Shared protocol module established
+* Desktop build verified
+* PSP build verified
 * Documentation update in progress
 * Pending final commit and push
 
@@ -106,34 +117,36 @@ Repository Status
 
 # Architecture Documents
 
-The repository contains the following architecture documentation:
+The repository currently contains:
 
-```text id="y2wn4e"
+```text
 docs/architecture/
 ├── overview.md
 ├── repository.md
 ├── desktop.md
 ├── psp.md
 ├── communication.md
+├── protocol.md
 ├── system_lifecycle.md
 ├── build.md
 └── coding_standards.md
 ```
 
-These documents define the architectural direction for future implementation and serve as the primary engineering reference for subsequent milestones.
+These documents define the architectural direction of the project and remain the primary engineering reference.
 
 ---
 
 # Repository Structure
 
-```text id="c5xpjq"
+```text
 PSP-DevLink/
 ├── apps/
 │   ├── desktop/
 │   └── psp/
+├── shared/
+│   └── protocol/
 ├── docs/
 │   └── architecture/
-├── shared/
 ├── scripts/
 ├── .gitignore
 └── README.md
@@ -145,23 +158,29 @@ PSP-DevLink/
 
 Implemented:
 
-* Verified PSP development environment
-* Verified PSP build system
-* Verified Desktop Companion build system
-* Verified emulator workflow
 * Production repository structure
-* Desktop Companion project skeleton
-* PSP application project skeleton
-* Shared module structure
-* Complete software architecture documentation
+* Independent Desktop and PSP build systems
+* Shared protocol module
+* Protocol public interfaces
+* Protocol versioning framework
+* Packet definitions
+* Message definitions
+* Transport abstraction
+* Desktop protocol library
+* Desktop stub transport
+* PSP stub transport
+* Verified Desktop build
+* Verified PSP build
 
 Not Yet Implemented:
 
-* Communication protocol
+* USB communication
+* Runtime protocol exchange
 * Desktop services
-* PSP user interface
-* Graphics engine
-* Plugin system
+* PSP graphics
+* Rendering engine
+* Notification system
+* Plugin architecture
 * Runtime features
 
 ---
@@ -170,19 +189,28 @@ Not Yet Implemented:
 
 Verified:
 
-* PSP application builds successfully using PSPDEV and PSPSDK.
 * Desktop Companion builds successfully using CMake.
-* Desktop Companion executable launches successfully.
+* Shared protocol library builds successfully.
+* PSP application builds successfully using PSPDEV and PSPSDK.
+* PSP EBOOT generation verified.
+
+---
+
+# Known Limitations
+
+Current PSP build configuration places generated object files for shared sources within the shared source tree.
+
+This is acceptable for Milestone 3 and should be revisited during a future build-system improvement milestone.
 
 ---
 
 # Next Milestone
 
-Milestone 3 — Shared Infrastructure
+Milestone 4 — USB Transport Layer
 
 Objective:
 
-Begin implementing the shared interfaces, protocol foundation, and common infrastructure required by both the Desktop Companion and PSP application before introducing user-facing functionality.
+Implement the first transport implementation using USB while preserving the protocol abstraction established during Milestone 3.
 
 ---
 

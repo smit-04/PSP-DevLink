@@ -1,5 +1,8 @@
 TARGET = PSPDevLink
-OBJS = src/main.o
+
+OBJS = \
+    src/main.o \
+    ../../shared/protocol/src/transport_stub.o
 
 BUILD_PRX = 0
 
@@ -9,9 +12,10 @@ CFLAGS = -O2 -G0 -Wall
 CXXFLAGS = $(CFLAGS)
 ASFLAGS = $(CFLAGS)
 
+INCDIR += ../../shared/protocol/include
+
 EXTRA_TARGETS = EBOOT.PBP
 PSP_EBOOT_TITLE = PSP DevLink
 
-PSPSDK=$(shell psp-config --pspsdk-path)
+PSPSDK = $(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build.mak
-
