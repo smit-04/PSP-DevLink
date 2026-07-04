@@ -8,7 +8,7 @@ OBJS = \
     src/message_router.o \
     src/ui.o
 
-BUILD_PRX = 0
+BUILD_PRX = 1
 
 PSP_FW_VERSION = 660
 
