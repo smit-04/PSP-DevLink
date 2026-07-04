@@ -5,6 +5,8 @@
 #include "system_service.h"
 #include "git_service.h"
 #include "notification_service.h"
+#include "config_service.h"
+#include "tui_service.h"
 
 #include <iostream>
 #include <thread>
@@ -20,9 +22,11 @@ enum ConnectionState
 
 int main()
 {
-    std::cout << "=========================================\n";
-    std::cout << "     PSP DevLink Desktop Companion       \n";
-    std::cout << "=========================================\n\n";
+    ConfigService config_service("config.ini");
+    config_service.load();
+
+    TuiService tui_service(config_service);
+    tui_service.initialize();
 
     ConnectionState state = STATE_DISCONNECTED;
     auto last_hello_time = std::chrono::steady_clock::now();
@@ -37,12 +41,50 @@ int main()
 
     while (true)
     {
+        // Poll for TUI keyboard events
+        char c = tui_service.check_input();
+        if (c == 'q' || c == 'Q')
+        {
+            break;
+        }
+        else if ((c == 'x' || c == 'X') && state == STATE_CONNECTED)
+        {
+            // Exit to XMB Control packet
+            PSPDL_ControlPayload ctrl = { 1 };
+            PSPDL_PacketHeader hdr;
+            hdr.magic = PSPDL_PROTOCOL_MAGIC;
+            hdr.protocol_version = (PSPDL_PROTOCOL_VERSION_MAJOR << 8) | PSPDL_PROTOCOL_VERSION_MINOR;
+            hdr.message_id = PSPDL_MESSAGE_CONTROL;
+            hdr.payload_size = PSPDL_PAYLOAD_CONTROL_SIZE;
+
+            uint8_t tx_buf[PSPDL_PACKET_HEADER_SIZE + PSPDL_PAYLOAD_CONTROL_SIZE];
+            pspl_serialize_header(&hdr, tx_buf, PSPDL_PACKET_HEADER_SIZE);
+            pspl_serialize_control(&ctrl, tx_buf + PSPDL_PACKET_HEADER_SIZE, PSPDL_PAYLOAD_CONTROL_SIZE);
+
+            transport_send(tx_buf, sizeof(tx_buf));
+        }
+        else if ((c == 'r' || c == 'R') && state == STATE_CONNECTED)
+        {
+            // Reboot Console Control packet
+            PSPDL_ControlPayload ctrl = { 2 };
+            PSPDL_PacketHeader hdr;
+            hdr.magic = PSPDL_PROTOCOL_MAGIC;
+            hdr.protocol_version = (PSPDL_PROTOCOL_VERSION_MAJOR << 8) | PSPDL_PROTOCOL_VERSION_MINOR;
+            hdr.message_id = PSPDL_MESSAGE_CONTROL;
+            hdr.payload_size = PSPDL_PAYLOAD_CONTROL_SIZE;
+
+            uint8_t tx_buf[PSPDL_PACKET_HEADER_SIZE + PSPDL_PAYLOAD_CONTROL_SIZE];
+            pspl_serialize_header(&hdr, tx_buf, PSPDL_PACKET_HEADER_SIZE);
+            pspl_serialize_control(&ctrl, tx_buf + PSPDL_PACKET_HEADER_SIZE, PSPDL_PAYLOAD_CONTROL_SIZE);
+
+            transport_send(tx_buf, sizeof(tx_buf));
+        }
+
         if (state == STATE_DISCONNECTED)
         {
-            std::cout << "[INFO] Searching for PSP DevLink device..." << std::endl;
+            tui_service.render("SEARCHING FOR HOST...");
             if (transport_initialize() == PSPDL_TRANSPORT_OK)
             {
-                std::cout << "[INFO] PSP Connected. Initiating Handshake..." << std::endl;
                 state = STATE_HANDSHAKING;
                 last_hello_time = std::chrono::steady_clock::now() - std::chrono::seconds(2);
             }
@@ -55,6 +97,7 @@ int main()
 
         if (state == STATE_HANDSHAKING)
         {
+            tui_service.render("HANDSHAKING...");
             auto now = std::chrono::steady_clock::now();
             if (std::chrono::duration_cast<std::chrono::seconds>(now - last_hello_time).count() >= 1)
             {
@@ -68,10 +111,8 @@ int main()
                 uint8_t tx_buf[PSPDL_PACKET_HEADER_SIZE];
                 pspl_serialize_header(&hello_hdr, tx_buf, sizeof(tx_buf));
 
-                std::cout << "[INFO] Sending HELLO packet to PSP..." << std::endl;
                 if (transport_send(tx_buf, sizeof(tx_buf)) != PSPDL_TRANSPORT_OK)
                 {
-                    std::cerr << "[ERROR] Failed to send HELLO packet. Disconnecting..." << std::endl;
                     transport_shutdown();
                     state = STATE_DISCONNECTED;
                     continue;
@@ -91,9 +132,6 @@ int main()
                 {
                     if (rx_hdr.message_id == PSPDL_MESSAGE_HELLO)
                     {
-                        std::cout << "[OK] Received HELLO response from PSP (Version: " 
-                                  << (rx_hdr.protocol_version >> 8) << "." 
-                                  << (rx_hdr.protocol_version & 0xFF) << "). Handshake Complete!" << std::endl;
                         state = STATE_CONNECTED;
                         last_heartbeat_time = std::chrono::steady_clock::now();
                         last_stats_time = std::chrono::steady_clock::now();
@@ -104,7 +142,6 @@ int main()
             }
             else if (res == PSPDL_TRANSPORT_ERROR)
             {
-                std::cerr << "[ERROR] Transport read error during handshaking. Disconnecting..." << std::endl;
                 transport_shutdown();
                 state = STATE_DISCONNECTED;
                 continue;
@@ -113,6 +150,7 @@ int main()
 
         if (state == STATE_CONNECTED)
         {
+            tui_service.render("CONNECTED");
             auto now = std::chrono::steady_clock::now();
 
             // Send HEARTBEAT packet every 2 seconds
@@ -127,10 +165,8 @@ int main()
                 uint8_t tx_buf[PSPDL_PACKET_HEADER_SIZE];
                 pspl_serialize_header(&hb_hdr, tx_buf, sizeof(tx_buf));
 
-                std::cout << "[INFO] Sending HEARTBEAT packet..." << std::endl;
                 if (transport_send(tx_buf, sizeof(tx_buf)) != PSPDL_TRANSPORT_OK)
                 {
-                    std::cerr << "[ERROR] Failed to send HEARTBEAT. Disconnecting..." << std::endl;
                     transport_shutdown();
                     state = STATE_DISCONNECTED;
                     continue;
@@ -138,8 +174,8 @@ int main()
                 last_heartbeat_time = now;
             }
 
-            // Send SYSTEM STATS payload every 1 second
-            if (std::chrono::duration_cast<std::chrono::seconds>(now - last_stats_time).count() >= 1)
+            // Send SYSTEM STATS payload
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_stats_time).count() >= config_service.telemetry_interval_ms)
             {
                 SystemMetrics metrics = system_service.get_metrics();
 
@@ -160,12 +196,8 @@ int main()
                 pspl_serialize_header(&hdr, tx_buf, PSPDL_PACKET_HEADER_SIZE);
                 pspl_serialize_system_stats(&stats, tx_buf + PSPDL_PACKET_HEADER_SIZE, PSPDL_PAYLOAD_SYSTEM_STATS_SIZE);
 
-                std::cout << "[INFO] Sending System Stats: CPU " << (int)stats.cpu_usage << "%, RAM " 
-                          << (int)stats.ram_usage << "%, Temp " << (stats.cpu_temp / 10.0) << " C" << std::endl;
-
                 if (transport_send(tx_buf, sizeof(tx_buf)) != PSPDL_TRANSPORT_OK)
                 {
-                    std::cerr << "[ERROR] Failed to send System Stats. Disconnecting..." << std::endl;
                     transport_shutdown();
                     state = STATE_DISCONNECTED;
                     continue;
@@ -173,8 +205,9 @@ int main()
                 last_stats_time = now;
             }
 
-            // Send GIT STATUS payload every 3 seconds
-            if (std::chrono::duration_cast<std::chrono::seconds>(now - last_git_time).count() >= 3)
+            // Send GIT STATUS payload (if enabled)
+            if (config_service.enable_git && 
+                std::chrono::duration_cast<std::chrono::milliseconds>(now - last_git_time).count() >= config_service.git_interval_ms)
             {
                 GitMetrics metrics = git_service.get_metrics();
 
@@ -194,12 +227,8 @@ int main()
                 pspl_serialize_header(&hdr, tx_buf, PSPDL_PACKET_HEADER_SIZE);
                 pspl_serialize_git_status(&git, tx_buf + PSPDL_PACKET_HEADER_SIZE, PSPDL_PAYLOAD_GIT_STATUS_SIZE);
 
-                std::cout << "[INFO] Sending Git Status: branch " << git.branch_name << ", mod files " 
-                          << git.modified_files << ", untracked " << git.untracked_files << std::endl;
-
                 if (transport_send(tx_buf, sizeof(tx_buf)) != PSPDL_TRANSPORT_OK)
                 {
-                    std::cerr << "[ERROR] Failed to send Git Status. Disconnecting..." << std::endl;
                     transport_shutdown();
                     state = STATE_DISCONNECTED;
                     continue;
@@ -207,8 +236,15 @@ int main()
                 last_git_time = now;
             }
 
-            // Check for notifications every 500ms
-            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_notif_time).count() >= 500)
+            // Send GIT STATUS payload check if we should reset timer if disabled
+            if (!config_service.enable_git)
+            {
+                last_git_time = now;
+            }
+
+            // Send NOTIFICATION payload (if enabled)
+            if (config_service.enable_notif && 
+                std::chrono::duration_cast<std::chrono::milliseconds>(now - last_notif_time).count() >= config_service.notif_interval_ms)
             {
                 NotificationMetrics metrics = notification_service.get_latest();
                 if (metrics.is_new)
@@ -229,17 +265,18 @@ int main()
                     pspl_serialize_header(&hdr, tx_buf, PSPDL_PACKET_HEADER_SIZE);
                     pspl_serialize_notification(&notif, tx_buf + PSPDL_PACKET_HEADER_SIZE, PSPDL_PAYLOAD_NOTIFICATION_SIZE);
 
-                    std::cout << "[INFO] Sending Notification: [" << notif.app_name << "] " 
-                              << notif.summary << " - " << notif.body << std::endl;
-
                     if (transport_send(tx_buf, sizeof(tx_buf)) != PSPDL_TRANSPORT_OK)
                     {
-                        std::cerr << "[ERROR] Failed to send Notification. Disconnecting..." << std::endl;
                         transport_shutdown();
                         state = STATE_DISCONNECTED;
                         continue;
                     }
                 }
+                last_notif_time = now;
+            }
+
+            if (!config_service.enable_notif)
+            {
                 last_notif_time = now;
             }
 
@@ -249,7 +286,6 @@ int main()
             PSPDL_TransportResult res = transport_receive(rx_buf, sizeof(rx_buf), &received);
             if (res == PSPDL_TRANSPORT_ERROR)
             {
-                std::cerr << "[ERROR] Connection lost. Disconnecting..." << std::endl;
                 transport_shutdown();
                 state = STATE_DISCONNECTED;
                 continue;
@@ -259,6 +295,7 @@ int main()
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
+    tui_service.shutdown();
     transport_shutdown();
     return 0;
 }

@@ -5,6 +5,7 @@
 PSPDL_SystemStatsPayload g_current_stats;
 PSPDL_GitStatusPayload g_current_git;
 PSPDL_NotificationPayload g_current_notif;
+uint8_t g_remote_command = 0;
 
 int router_dispatch(
     const PSPDL_PacketHeader *header,
@@ -52,6 +53,21 @@ int router_dispatch(
         {
             pspDebugScreenPrintf("[ERR] Failed to deserialize Notification: %d\n", ret);
             return -4;
+        }
+    }
+    else if (header->message_id == PSPDL_MESSAGE_CONTROL)
+    {
+        PSPDL_ControlPayload ctrl;
+        int ret = pspl_deserialize_control(payload_buf, header->payload_size, &ctrl);
+        if (ret == 0)
+        {
+            g_remote_command = ctrl.command_id;
+            return 0;
+        }
+        else
+        {
+            pspDebugScreenPrintf("[ERR] Failed to deserialize Control Packet: %d\n", ret);
+            return -5;
         }
     }
 

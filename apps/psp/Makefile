@@ -12,7 +12,7 @@ BUILD_PRX = 0
 
 PSP_FW_VERSION = 660
 
-LIBS += -lpspusbbus_driver -lpspusb_driver
+LIBS += -lpspusbbus_driver -lpspusb_driver -lpsppower
 
 CFLAGS = -O2 -G0 -Wall
 CXXFLAGS = $(CFLAGS)

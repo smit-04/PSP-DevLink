@@ -204,3 +204,31 @@ int pspl_deserialize_notification(
 
     return 0;
 }
+
+int pspl_serialize_control(
+    const PSPDL_ControlPayload *ctrl,
+    uint8_t *buffer,
+    size_t size)
+{
+    if (ctrl == NULL || buffer == NULL || size < PSPDL_PAYLOAD_CONTROL_SIZE)
+    {
+        return -1;
+    }
+
+    buffer[0] = ctrl->command_id;
+    return 0;
+}
+
+int pspl_deserialize_control(
+    const uint8_t *buffer,
+    size_t size,
+    PSPDL_ControlPayload *ctrl)
+{
+    if (buffer == NULL || ctrl == NULL || size < PSPDL_PAYLOAD_CONTROL_SIZE)
+    {
+        return -1;
+    }
+
+    ctrl->command_id = buffer[0];
+    return 0;
+}

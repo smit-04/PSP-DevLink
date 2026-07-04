@@ -38,6 +38,7 @@ int setup_callbacks(void)
 #include <protocol/transport.h>
 #include <protocol/packet.h>
 #include <protocol/version.h>
+#include <psppower.h>
 #include "message_router.h"
 #include "ui.h"
 
@@ -76,8 +77,17 @@ int main(void)
         SceCtrlData pad;
         sceCtrlReadBufferPositive(&pad, 1);
 
-        if (pad.Buttons & PSP_CTRL_START)
+        if (pad.Buttons & PSP_CTRL_START || g_remote_command == 1)
             break;
+
+        if (g_remote_command == 2)
+        {
+            sceKernelDelayThread(100000);
+            transport_shutdown();
+            scePowerRequestColdReset(0);
+            sceKernelExitGame();
+            return 0;
+        }
 
         // Try to receive a packet header
         uint8_t rx_buf[PSPDL_PACKET_HEADER_SIZE];
