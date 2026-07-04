@@ -1,10 +1,12 @@
 #include "protocol/transport.h"
 #include "protocol/packet.h"
 #include "protocol/version.h"
+#include "protocol/payload.h"
 
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <cstring>
 
 enum ConnectionState
 {
@@ -22,6 +24,8 @@ int main()
     ConnectionState state = STATE_DISCONNECTED;
     auto last_hello_time = std::chrono::steady_clock::now();
     auto last_heartbeat_time = std::chrono::steady_clock::now();
+    auto last_stats_time = std::chrono::steady_clock::now();
+    auto last_git_time = std::chrono::steady_clock::now();
 
     while (true)
     {
@@ -84,6 +88,8 @@ int main()
                                   << (rx_hdr.protocol_version & 0xFF) << "). Handshake Complete!" << std::endl;
                         state = STATE_CONNECTED;
                         last_heartbeat_time = std::chrono::steady_clock::now();
+                        last_stats_time = std::chrono::steady_clock::now();
+                        last_git_time = std::chrono::steady_clock::now();
                     }
                 }
             }
@@ -99,6 +105,7 @@ int main()
         if (state == STATE_CONNECTED)
         {
             auto now = std::chrono::steady_clock::now();
+
             // Send HEARTBEAT packet every 2 seconds
             if (std::chrono::duration_cast<std::chrono::seconds>(now - last_heartbeat_time).count() >= 2)
             {
@@ -120,6 +127,91 @@ int main()
                     continue;
                 }
                 last_heartbeat_time = now;
+            }
+
+            // Send SYSTEM STATS payload every 1 second
+            if (std::chrono::duration_cast<std::chrono::seconds>(now - last_stats_time).count() >= 1)
+            {
+                static uint8_t cpu_val = 15;
+                static uint8_t ram_val = 40;
+                static uint16_t temp_val = 380;
+
+                cpu_val = (cpu_val + 7) % 60 + 10;
+                ram_val = (ram_val + 3) % 40 + 30;
+                temp_val = (temp_val + 12) % 300 + 350;
+
+                PSPDL_SystemStatsPayload stats;
+                stats.cpu_usage = cpu_val;
+                stats.ram_usage = ram_val;
+                stats.cpu_temp = temp_val;
+                stats.ram_total = 17179869184ULL; // 16 GB
+                stats.ram_free = stats.ram_total * (100 - stats.ram_usage) / 100;
+
+                PSPDL_PacketHeader hdr;
+                hdr.magic = PSPDL_PROTOCOL_MAGIC;
+                hdr.protocol_version = (PSPDL_PROTOCOL_VERSION_MAJOR << 8) | PSPDL_PROTOCOL_VERSION_MINOR;
+                hdr.message_id = PSPDL_MESSAGE_SYSTEM_STATS;
+                hdr.payload_size = PSPDL_PAYLOAD_SYSTEM_STATS_SIZE;
+
+                uint8_t tx_buf[PSPDL_PACKET_HEADER_SIZE + PSPDL_PAYLOAD_SYSTEM_STATS_SIZE];
+                pspl_serialize_header(&hdr, tx_buf, PSPDL_PACKET_HEADER_SIZE);
+                pspl_serialize_system_stats(&stats, tx_buf + PSPDL_PACKET_HEADER_SIZE, PSPDL_PAYLOAD_SYSTEM_STATS_SIZE);
+
+                std::cout << "[INFO] Sending System Stats: CPU " << (int)cpu_val << "%, RAM " 
+                          << (int)ram_val << "%, Temp " << (temp_val / 10.0) << " C" << std::endl;
+
+                if (transport_send(tx_buf, sizeof(tx_buf)) != PSPDL_TRANSPORT_OK)
+                {
+                    std::cerr << "[ERROR] Failed to send System Stats. Disconnecting..." << std::endl;
+                    transport_shutdown();
+                    state = STATE_DISCONNECTED;
+                    continue;
+                }
+                last_stats_time = now;
+            }
+
+            // Send GIT STATUS payload every 3 seconds
+            if (std::chrono::duration_cast<std::chrono::seconds>(now - last_git_time).count() >= 3)
+            {
+                static uint32_t mod_files = 1;
+                static uint32_t untracked_files = 0;
+                mod_files = (mod_files + 2) % 15;
+                untracked_files = (untracked_files + 1) % 5;
+
+                PSPDL_GitStatusPayload git;
+                git.modified_files = mod_files;
+                git.untracked_files = untracked_files;
+                memset(git.branch_name, 0, sizeof(git.branch_name));
+                if (mod_files % 2 == 0)
+                {
+                    strncpy(git.branch_name, "main", sizeof(git.branch_name) - 1);
+                }
+                else
+                {
+                    strncpy(git.branch_name, "feature/telemetry", sizeof(git.branch_name) - 1);
+                }
+
+                PSPDL_PacketHeader hdr;
+                hdr.magic = PSPDL_PROTOCOL_MAGIC;
+                hdr.protocol_version = (PSPDL_PROTOCOL_VERSION_MAJOR << 8) | PSPDL_PROTOCOL_VERSION_MINOR;
+                hdr.message_id = PSPDL_MESSAGE_GIT_STATUS;
+                hdr.payload_size = PSPDL_PAYLOAD_GIT_STATUS_SIZE;
+
+                uint8_t tx_buf[PSPDL_PACKET_HEADER_SIZE + PSPDL_PAYLOAD_GIT_STATUS_SIZE];
+                pspl_serialize_header(&hdr, tx_buf, PSPDL_PACKET_HEADER_SIZE);
+                pspl_serialize_git_status(&git, tx_buf + PSPDL_PACKET_HEADER_SIZE, PSPDL_PAYLOAD_GIT_STATUS_SIZE);
+
+                std::cout << "[INFO] Sending Git Status: branch " << git.branch_name << ", mod files " 
+                          << mod_files << ", untracked " << untracked_files << std::endl;
+
+                if (transport_send(tx_buf, sizeof(tx_buf)) != PSPDL_TRANSPORT_OK)
+                {
+                    std::cerr << "[ERROR] Failed to send Git Status. Disconnecting..." << std::endl;
+                    transport_shutdown();
+                    state = STATE_DISCONNECTED;
+                    continue;
+                }
+                last_git_time = now;
             }
 
             // Receive check to keep the transport read channel clear

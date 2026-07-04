@@ -9,6 +9,7 @@
 
 add_library(pspdevlink_protocol STATIC
     src/packet.c
+    src/payload.c
 )
 
 target_include_directories(pspdevlink_protocol

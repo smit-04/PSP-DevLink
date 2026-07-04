@@ -38,6 +38,7 @@ int setup_callbacks(void)
 #include <protocol/transport.h>
 #include <protocol/packet.h>
 #include <protocol/version.h>
+#include "message_router.h"
 
 typedef enum
 {
@@ -58,7 +59,7 @@ int main(void)
     pspDebugScreenPrintf("        PSP DevLink\n");
     pspDebugScreenPrintf("=================================\n\n");
 
-    pspDebugScreenPrintf("Milestone 5 Handshake Setup\n\n");
+    pspDebugScreenPrintf("Milestone 6 Message Routing\n\n");
 
     pspDebugScreenPrintf("[OK] Display Initialized\n");
     pspDebugScreenPrintf("[OK] Controller Initialized\n");
@@ -104,32 +105,82 @@ int main(void)
             {
                 ticks_since_last_packet = 0; // reset watchdog
 
-                if (state == STATE_DISCONNECTED && rx_hdr.message_id == PSPDL_MESSAGE_HELLO)
+                // Read payload if present
+                static uint8_t payload_buf[512];
+                int payload_ok = 1;
+                if (rx_hdr.payload_size > 0)
                 {
-                    // Validate protocol version
-                    uint16_t expected_ver = (PSPDL_PROTOCOL_VERSION_MAJOR << 8) | PSPDL_PROTOCOL_VERSION_MINOR;
-                    if (rx_hdr.protocol_version == expected_ver)
+                    if (rx_hdr.payload_size <= sizeof(payload_buf))
                     {
-                        // Send HELLO packet response back to Host
-                        PSPDL_PacketHeader tx_hdr;
-                        tx_hdr.magic = PSPDL_PROTOCOL_MAGIC;
-                        tx_hdr.protocol_version = expected_ver;
-                        tx_hdr.message_id = PSPDL_MESSAGE_HELLO;
-                        tx_hdr.payload_size = 0;
-
-                        uint8_t tx_buf[PSPDL_PACKET_HEADER_SIZE];
-                        pspl_serialize_header(&tx_hdr, tx_buf, sizeof(tx_buf));
-
-                        if (transport_send(tx_buf, sizeof(tx_buf)) == PSPDL_TRANSPORT_OK)
+                        size_t pay_received = 0;
+                        uint32_t pay_ticks = 0;
+                        while (pay_received < rx_hdr.payload_size && pay_ticks < 100)
                         {
-                            state = STATE_CONNECTED;
-                            pspDebugScreenPrintf("[OK] Handshake Complete! Connected to Host.\n");
+                            size_t chunk_rec = 0;
+                            PSPDL_TransportResult pay_res = transport_receive(
+                                payload_buf + pay_received,
+                                rx_hdr.payload_size - pay_received,
+                                &chunk_rec);
+                            if (pay_res == PSPDL_TRANSPORT_OK)
+                            {
+                                pay_received += chunk_rec;
+                            }
+                            else
+                            {
+                                payload_ok = 0;
+                                break;
+                            }
+                            if (chunk_rec == 0)
+                            {
+                                sceKernelDelayThread(1000);
+                                pay_ticks++;
+                            }
+                        }
+                        if (pay_received < rx_hdr.payload_size)
+                        {
+                            payload_ok = 0;
                         }
                     }
                     else
                     {
-                        pspDebugScreenPrintf("[WARN] Protocol Version Mismatch: %d.%d\n", 
-                                             (rx_hdr.protocol_version >> 8), (rx_hdr.protocol_version & 0xFF));
+                        payload_ok = 0;
+                    }
+                }
+
+                if (payload_ok)
+                {
+                    if (state == STATE_DISCONNECTED && rx_hdr.message_id == PSPDL_MESSAGE_HELLO)
+                    {
+                        // Validate protocol version
+                        uint16_t expected_ver = (PSPDL_PROTOCOL_VERSION_MAJOR << 8) | PSPDL_PROTOCOL_VERSION_MINOR;
+                        if (rx_hdr.protocol_version == expected_ver)
+                        {
+                            // Send HELLO packet response back to Host
+                            PSPDL_PacketHeader tx_hdr;
+                            tx_hdr.magic = PSPDL_PROTOCOL_MAGIC;
+                            tx_hdr.protocol_version = expected_ver;
+                            tx_hdr.message_id = PSPDL_MESSAGE_HELLO;
+                            tx_hdr.payload_size = 0;
+
+                            uint8_t tx_buf[PSPDL_PACKET_HEADER_SIZE];
+                            pspl_serialize_header(&tx_hdr, tx_buf, sizeof(tx_buf));
+
+                            if (transport_send(tx_buf, sizeof(tx_buf)) == PSPDL_TRANSPORT_OK)
+                            {
+                                state = STATE_CONNECTED;
+                                pspDebugScreenPrintf("[OK] Handshake Complete! Connected to Host.\n");
+                            }
+                        }
+                        else
+                        {
+                            pspDebugScreenPrintf("[WARN] Protocol Version Mismatch: %d.%d\n", 
+                                                 (rx_hdr.protocol_version >> 8), (rx_hdr.protocol_version & 0xFF));
+                        }
+                    }
+                    else if (state == STATE_CONNECTED)
+                    {
+                        // Route packet payload to dispatcher
+                        router_dispatch(&rx_hdr, payload_buf);
                     }
                 }
             }

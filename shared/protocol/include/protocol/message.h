@@ -17,7 +17,9 @@ typedef enum
     PSPDL_MESSAGE_HELLO = 1,
     PSPDL_MESSAGE_HEARTBEAT = 2,
 
-    /* Reserved for future expansion */
+    /* System Telemetry */
+    PSPDL_MESSAGE_SYSTEM_STATS = 3,
+    PSPDL_MESSAGE_GIT_STATUS = 4
 
 } PSPDL_MessageId;
 

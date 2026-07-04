@@ -14,7 +14,7 @@ PSP DevLink
 
 # Current Milestone
 
-Milestone 5 — Handshake and Packet Serialization
+Milestone 6 — Message Processing and Routing
 
 Status: COMPLETED (VERIFIED IN EMULATOR FALLBACK)
 
@@ -22,7 +22,7 @@ Status: COMPLETED (VERIFIED IN EMULATOR FALLBACK)
 
 # Objective
 
-Establish a communication session protocol between the Desktop Companion and the PSP. Implement a byte-level serialization layer for the `PSPDL_PacketHeader` and define the handshake state machine logic on both targets to ensure connection reliability.
+Implement structured message payload formats, platform-independent serialization, and a client-side routing dispatcher that parses message types, deserializes fields, and updates local state.
 
 ---
 
@@ -30,22 +30,23 @@ Establish a communication session protocol between the Desktop Companion and the
 
 Completed during this milestone:
 
-* Convert `pspdevlink_protocol` to a CMake STATIC library
-* Implement Little-Endian explicit packet header serialization/deserialization (`packet.c`)
-* Declare serialization functions with `extern "C"` linkage in `packet.h`
-* Update PSP Makefile to compile and link shared protocol files
-* Implement Desktop Companion handshake loop and heartbeat broadcast (`main.cpp`)
-* Implement PSP Client handshake loop and connection status rendering (`main.c`)
-* Implement 5-second inactivity watchdog timer on PSP
-* Develop interactive visual mock packet simulation for PPSSPP verification
+* Add `PSPDL_MESSAGE_SYSTEM_STATS` and `PSPDL_MESSAGE_GIT_STATUS` message IDs
+* Define payload structs and serialization APIs in `payload.h`
+* Implement Little-Endian explicit serialization/deserialization for stats/git (`payload.c`)
+* Configure `CMakeLists.txt` to include `src/payload.c`
+* Implement simulated telemetry broadcasts in Desktop Companion (`main.cpp`)
+* Compile and link shared payload object in PSP Client (`Makefile`)
+* Implement state stores and dispatcher on PSP client (`message_router.c`)
+* Integrate dispatcher and payload readers inside PSP main loop (`main.c`)
+* Upgrade mock simulation in `transport_usb.c` to inject system stats and git status payloads
 
-Current implementation provides a fully operational handshake and packet serialization protocol. Both applications transition connection states dynamically and handle timeouts gracefully.
+Current implementation has fully implemented message payload serialization and client routing. The client parses headers, extracts variable-sized payloads, and updates local telemetry state caches dynamically.
 
 Not yet implemented:
 
-* message processing (routing payloads to specific handlers)
-* Desktop services (CPU/Git monitoring)
-* PSP graphics rendering engine (visual dashboard)
+* Desktop system services (reading real CPU/Git metrics via system APIs)
+* PSP graphics rendering engine (visual dashboard panel)
+* notifications collection and display
 * message processing
 * session management
 * runtime communication
@@ -108,10 +109,11 @@ Repository Status
 * Milestone 3 communication foundation completed
 * Milestone 4 USB Transport Implementation completed
 * Milestone 5 Handshake and Packet Serialization completed
-* Shared protocol module converted to a STATIC library with packet serialization
-* Platform-specific transport backends established and linked
-* Handshake loops and watchdogs implemented on both targets
-* Interactive mock handshake simulation verified on PPSSPP
+* Milestone 6 Message Processing and Routing completed
+* Shared static library compiles packet and payload serialization
+* Desktop streams simulated system and git telemetry
+* PSP client routes payloads to state managers
+* Visual mock telemetry verification loop verified in PPSSPP
 * Pending push to remote repository
 
 ---

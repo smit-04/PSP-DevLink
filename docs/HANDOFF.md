@@ -1,62 +1,64 @@
 # HANDOFF.md
 
-Milestone: Milestone 5 — Handshake and Packet Serialization
+Milestone: Milestone 6 — Message Processing and Routing
 
-Status: Completed (Handshake Protocol and Serialization Layer Verified in Emulator Fallback)
+Status: Completed (Message Payloads, Serialization, Routing, and Visual Telemetry Verified in Emulator)
 
 ---
 
 # Summary
 
-Milestone 5 has been fully completed. We established a stable connection session protocol between the Desktop Companion and the PSP client using Little-Endian packed serialization of the `PSPDL_PacketHeader` and implemented handshake loops and watchdog timeouts.
+Milestone 6 has been fully completed. We extended the shared protocol and communication layers to support transmission, verification, deserialization, and routing of structured payloads (System Stats and Git Status) carrying host data to the PSP client state cache.
 
-1. **Shared Protocol static library**: Changed `pspdevlink_protocol` to a STATIC library compiling the new `src/packet.c` file. Shared the compiled objects directly between CMake (Desktop) and GNU Make (PSP).
-2. **Serialization API**: Wrote explicit serialization/deserialization functions in pure C with Little-Endian packing, avoiding compiler alignment/padding differences between MIPS and x86_64/ARM64.
-3. **Desktop Handshake Loop**: Programmed `main.cpp` to broadcast HELLO packets, wait for response, transition to CONNECTED state, and periodically send HEARTBEAT packets.
-4. **PSP Handshake Loop & Watchdog**: Programmed `main.c` to parse and validate incoming packets, send back HELLO responses, show connection updates on screen, and drop the link if no packet is received for 5 seconds (watchdog timer).
-5. **Interactive Handshake Simulation**: Upgraded the mock transport mode on PSP to inject HELLO and HEARTBEAT packets, validating the entire state machine sequence live in PPSSPP.
+1. **Structured Telemetry Payloads**: Defined exact payload structures for system performance metrics (`cpu_usage`, `ram_usage`, `cpu_temp`, `ram_total`, `ram_free`) and Git repository updates (`modified_files`, `untracked_files`, `branch_name`).
+2. **Byte-Level Payload Serialization**: Implemented warning-free serialization and deserialization routines in `payload.c` using shifts to guarantee Little-Endian packing, resolving MIPS (client) vs Host (companion) architecture differences.
+3. **Desktop Telemetry Stream**: Configured the companion application to stream system metrics every 1s and Git status updates every 3s.
+4. **PSP Router Dispatcher**: Created the `message_router` component on the PSP client to decode packets, cache updates in global telemetry state stores, and render formatted outputs to the screen.
+5. **Interactive Telemetry Simulation**: Upgraded the emulator mock transport on the PSP to inject simulated System Stats and Git Status updates, confirming that the entire payload framing and routing pipeline runs flawlessly on PPSSPP.
 
 ---
 
 # Deliverables Completed
 
-* **Shared Static Library**: Protocol module converted from `INTERFACE` to `STATIC`.
-* **Explicit Packet Serialization**: Built byte-level packing/unpacking routines (`packet.c`).
-* **Desktop Companion Handshake Loop**: Broadcaster and receiver state machine loop (`main.cpp`).
-* **PSP Client Handshake Loop**: Receiver, responder, and visual state printer (`main.c`).
-* **PSP Watchdog Timer**: 5-second inactivity watchdog.
-* **Emulator Mock simulation**: Custom timed packet injection for easy visual debugging.
+* **Payload Definitions**: Message types added to `message.h` and structures declared in `payload.h`.
+* **Payload Serialization API**: Custom byte-level Little-Endian marshalling functions built in `payload.c`.
+* **Desktop companion Telemetry Loop**: Broadcast scheduler in `main.cpp`.
+* **PSP Client Dispatcher**: `message_router.c` to parse message types and cache/output updates.
+* **PSP Client receive loop integration**: Payload assembly logic in `main.c`.
+* **Emulator mock simulation**: Custom payload injection sequence for visual telemetry verification.
 
 ---
 
 # Verification Summary
 
-* **Desktop Companion Build**: Builds and links against `libpspdevlink_protocol.a` under WSL.
-* **PSP Client Build**: Compiles and links against `../../shared/protocol/src/packet.o` under WSL.
-* **PPSSPP Emulator Validation**: Loaded the EBOOT on PPSSPP; observed state transitioning dynamically:
+* **Desktop Companion Build**: Compiles and links successfully under WSL.
+* **PSP Client Build**: Compiles, links all static libraries/objects, and builds `EBOOT.PBP` cleanly under WSL.
+* **PPSSPP Emulator Validation**: Loaded the EBOOT on PPSSPP; observed the simulation running on screen:
   1. Displays `Waiting for Host Connection...`
-  2. Handshake succeeds and prints `Handshake Complete! Connected to Host.`
-  3. Receives simulated heartbeats.
-  4. Heartbeats stop and watchdog triggers disconnection warning: `Connection Timeout. Disconnected.`
+  2. Handshake succeeds and prints `Connected to Host.`
+  3. Receives and displays stats: `[STATS] CPU:35% RAM:55% Temp:42.5C`
+  4. Receives and displays git updates: `[GIT] Branch:dev-branch Mod:5 Untracked:2`
+  5. Disconnects due to watchdog timeout when heartbeats stop.
 
 ---
 
 # Remaining Work
 
-* Message processing (defining individual payload structs and routing packet payloads to message handlers).
-* Desktop system service integration (CPU load, git status, notifications collection).
-* PSP graphics rendering engine (visual dashboard panel).
+* Desktop system service integration (gathering actual system stats and Git repository logs via host operating system APIs).
+* PSP graphics rendering engine (converting debug printouts to a graphical HUD interface using the PSP GU).
+* Desktop notifications service.
 
 ---
 
 # Recommended Next Milestone
 
-**Milestone 6 — Message Processing and Routing**
+**Milestone 7 — Desktop System Services Integration**
 
-Focus on routing different packet types:
-1. Define structures for payloads (e.g. system status updates, git status updates, console output payloads).
-2. Implement a dispatcher on the PSP client that parses the `message_id` and forwards the payload to its corresponding handler.
-3. Implement encoder helpers on the Desktop Companion to wrap system data into message payloads.
+Focus on acquiring real host metrics on the Desktop Companion:
+1. Replace the hardcoded simulation timers in `apps/desktop/src/main.cpp` with actual background system monitor threads.
+2. Query system APIs on the host (e.g. `/proc/stat` on Linux/WSL or registry keys) to acquire CPU load and memory usage.
+3. Execute local git commands (e.g. `git symbolic-ref --short HEAD` and `git status --porcelain`) to read real git metrics.
+4. Package this information into protocol payloads and stream them to the PSP client.
 
 ---
 

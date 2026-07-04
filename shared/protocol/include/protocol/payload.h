@@ -1,0 +1,54 @@
+#ifndef PSPDL_PROTOCOL_PAYLOAD_H
+#define PSPDL_PROTOCOL_PAYLOAD_H
+
+#include <stdint.h>
+#include <stddef.h>
+
+#define PSPDL_PAYLOAD_SYSTEM_STATS_SIZE 20
+#define PSPDL_PAYLOAD_GIT_STATUS_SIZE 40
+
+typedef struct
+{
+    uint8_t cpu_usage;
+    uint8_t ram_usage;
+    uint16_t cpu_temp;
+    uint64_t ram_total;
+    uint64_t ram_free;
+} PSPDL_SystemStatsPayload;
+
+typedef struct
+{
+    uint32_t modified_files;
+    uint32_t untracked_files;
+    char branch_name[32];
+} PSPDL_GitStatusPayload;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int pspl_serialize_system_stats(
+    const PSPDL_SystemStatsPayload *stats,
+    uint8_t *buffer,
+    size_t size);
+
+int pspl_deserialize_system_stats(
+    const uint8_t *buffer,
+    size_t size,
+    PSPDL_SystemStatsPayload *stats);
+
+int pspl_serialize_git_status(
+    const PSPDL_GitStatusPayload *git,
+    uint8_t *buffer,
+    size_t size);
+
+int pspl_deserialize_git_status(
+    const uint8_t *buffer,
+    size_t size,
+    PSPDL_GitStatusPayload *git);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* PSPDL_PROTOCOL_PAYLOAD_H */

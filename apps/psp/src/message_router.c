@@ -1,0 +1,56 @@
+#include "message_router.h"
+#include <pspdebug.h>
+#include <stddef.h>
+
+PSPDL_SystemStatsPayload g_current_stats;
+PSPDL_GitStatusPayload g_current_git;
+
+int router_dispatch(
+    const PSPDL_PacketHeader *header,
+    const uint8_t *payload_buf)
+{
+    if (header == NULL || payload_buf == NULL)
+    {
+        return -1;
+    }
+
+    if (header->message_id == PSPDL_MESSAGE_SYSTEM_STATS)
+    {
+        int ret = pspl_deserialize_system_stats(payload_buf, header->payload_size, &g_current_stats);
+        if (ret == 0)
+        {
+            // Print System Stats telemetry update
+            pspDebugScreenPrintf("[STATS] CPU:%d%% RAM:%d%% Temp:%d.%dC\n",
+                                 (int)g_current_stats.cpu_usage,
+                                 (int)g_current_stats.ram_usage,
+                                 (int)(g_current_stats.cpu_temp / 10),
+                                 (int)(g_current_stats.cpu_temp % 10));
+            return 0;
+        }
+        else
+        {
+            pspDebugScreenPrintf("[ERR] Failed to deserialize System Stats: %d\n", ret);
+            return -2;
+        }
+    }
+    else if (header->message_id == PSPDL_MESSAGE_GIT_STATUS)
+    {
+        int ret = pspl_deserialize_git_status(payload_buf, header->payload_size, &g_current_git);
+        if (ret == 0)
+        {
+            // Print Git Status telemetry update
+            pspDebugScreenPrintf("[GIT] Branch:%s Mod:%u Untracked:%u\n",
+                                 g_current_git.branch_name,
+                                 (unsigned int)g_current_git.modified_files,
+                                 (unsigned int)g_current_git.untracked_files);
+            return 0;
+        }
+        else
+        {
+            pspDebugScreenPrintf("[ERR] Failed to deserialize Git Status: %d\n", ret);
+            return -3;
+        }
+    }
+
+    return 0;
+}

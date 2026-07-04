@@ -1,6 +1,7 @@
 #include <protocol/transport.h>
 #include <protocol/packet.h>
 #include <protocol/version.h>
+#include <protocol/payload.h>
 
 #include <pspkernel.h>
 #include <pspusb.h>
@@ -504,6 +505,66 @@ PSPDL_TransportResult transport_receive(
                 memcpy(g_mock_buffer + g_mock_buffer_size, temp, PSPDL_PACKET_HEADER_SIZE);
                 g_mock_buffer_size += PSPDL_PACKET_HEADER_SIZE;
                 pspDebugScreenPrintf("[MOCK] Injecting HELLO from Host...\n");
+            }
+        }
+
+        // Inject simulated System Stats payload after 6 seconds (600 ticks)
+        if (mock_ticks == 600)
+        {
+            PSPDL_SystemStatsPayload stats;
+            stats.cpu_usage = 35;
+            stats.ram_usage = 55;
+            stats.cpu_temp = 425; // 42.5C
+            stats.ram_total = 17179869184ULL; // 16GB
+            stats.ram_free = stats.ram_total * (100 - stats.ram_usage) / 100;
+
+            PSPDL_PacketHeader hdr;
+            hdr.magic = PSPDL_PROTOCOL_MAGIC;
+            hdr.protocol_version = (PSPDL_PROTOCOL_VERSION_MAJOR << 8) | PSPDL_PROTOCOL_VERSION_MINOR;
+            hdr.message_id = PSPDL_MESSAGE_SYSTEM_STATS;
+            hdr.payload_size = PSPDL_PAYLOAD_SYSTEM_STATS_SIZE;
+
+            uint8_t temp[PSPDL_PACKET_HEADER_SIZE + PSPDL_PAYLOAD_SYSTEM_STATS_SIZE];
+            pspl_serialize_header(&hdr, temp, PSPDL_PACKET_HEADER_SIZE);
+            pspl_serialize_system_stats(&stats, temp + PSPDL_PACKET_HEADER_SIZE, PSPDL_PAYLOAD_SYSTEM_STATS_SIZE);
+
+            if (g_mock_buffer_size + sizeof(temp) <= sizeof(g_mock_buffer))
+            {
+                memcpy(g_mock_buffer + g_mock_buffer_size, temp, sizeof(temp));
+                g_mock_buffer_size += sizeof(temp);
+                pspDebugScreenPrintf("[MOCK] Injecting System Stats...\n");
+            }
+        }
+
+        // Inject simulated Git Status payload after 9 seconds (900 ticks)
+        if (mock_ticks == 900)
+        {
+            PSPDL_GitStatusPayload git;
+            git.modified_files = 5;
+            git.untracked_files = 2;
+            memset(git.branch_name, 0, sizeof(git.branch_name));
+            // Warning-free assignment
+            const char *branch = "dev-branch";
+            for (int i = 0; i < 31 && branch[i] != '\0'; i++)
+            {
+                git.branch_name[i] = branch[i];
+            }
+
+            PSPDL_PacketHeader hdr;
+            hdr.magic = PSPDL_PROTOCOL_MAGIC;
+            hdr.protocol_version = (PSPDL_PROTOCOL_VERSION_MAJOR << 8) | PSPDL_PROTOCOL_VERSION_MINOR;
+            hdr.message_id = PSPDL_MESSAGE_GIT_STATUS;
+            hdr.payload_size = PSPDL_PAYLOAD_GIT_STATUS_SIZE;
+
+            uint8_t temp[PSPDL_PACKET_HEADER_SIZE + PSPDL_PAYLOAD_GIT_STATUS_SIZE];
+            pspl_serialize_header(&hdr, temp, PSPDL_PACKET_HEADER_SIZE);
+            pspl_serialize_git_status(&git, temp + PSPDL_PACKET_HEADER_SIZE, PSPDL_PAYLOAD_GIT_STATUS_SIZE);
+
+            if (g_mock_buffer_size + sizeof(temp) <= sizeof(g_mock_buffer))
+            {
+                memcpy(g_mock_buffer + g_mock_buffer_size, temp, sizeof(temp));
+                g_mock_buffer_size += sizeof(temp);
+                pspDebugScreenPrintf("[MOCK] Injecting Git Status...\n");
             }
         }
 
