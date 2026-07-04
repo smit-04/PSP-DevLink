@@ -7,9 +7,11 @@
 # Shared protocol source files (packet serialization, framing, message
 # processing, etc.) will be added in future milestones.
 
-add_library(pspdevlink_protocol INTERFACE)
+add_library(pspdevlink_protocol STATIC
+    src/packet.c
+)
 
 target_include_directories(pspdevlink_protocol
-    INTERFACE
+    PUBLIC
         include
 )

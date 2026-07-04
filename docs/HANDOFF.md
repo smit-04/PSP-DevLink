@@ -1,56 +1,62 @@
 # HANDOFF.md
 
-Milestone: Milestone 4 — USB Transport Implementation
+Milestone: Milestone 5 — Handshake and Packet Serialization
 
-Status: Completed (USB Transport and Emulator Mock Fallback Implemented)
+Status: Completed (Handshake Protocol and Serialization Layer Verified in Emulator Fallback)
 
 ---
 
 # Summary
 
-Milestone 4 has been fully completed. We transitioned from placeholder transport APIs to full USB transport backend implementations on both the Desktop Companion and the PSP client, while maintaining strict transport abstraction from the protocol layer.
+Milestone 5 has been fully completed. We established a stable connection session protocol between the Desktop Companion and the PSP client using Little-Endian packed serialization of the `PSPDL_PacketHeader` and implemented handshake loops and watchdog timeouts.
 
-1. **Desktop Companion**: Integrated `libusb-1.0` to discover, claim, and communicate with the PSP over Bulk OUT (`0x02`) and Bulk IN (`0x81`) endpoints.
-2. **PSP Client**: Switched the application to Kernel Mode (`0x1000`) and implemented the hardware-level USB driver using the SCE bus driver APIs, with 64-byte alignment, cache coherence, and non-blocking asynchronous event flags.
-3. **Emulator Fallback**: Implemented a graceful Mock loopback mode that activates if real hardware registration fails, ensuring the application runs correctly on PPSSPP for testing.
+1. **Shared Protocol static library**: Changed `pspdevlink_protocol` to a STATIC library compiling the new `src/packet.c` file. Shared the compiled objects directly between CMake (Desktop) and GNU Make (PSP).
+2. **Serialization API**: Wrote explicit serialization/deserialization functions in pure C with Little-Endian packing, avoiding compiler alignment/padding differences between MIPS and x86_64/ARM64.
+3. **Desktop Handshake Loop**: Programmed `main.cpp` to broadcast HELLO packets, wait for response, transition to CONNECTED state, and periodically send HEARTBEAT packets.
+4. **PSP Handshake Loop & Watchdog**: Programmed `main.c` to parse and validate incoming packets, send back HELLO responses, show connection updates on screen, and drop the link if no packet is received for 5 seconds (watchdog timer).
+5. **Interactive Handshake Simulation**: Upgraded the mock transport mode on PSP to inject HELLO and HEARTBEAT packets, validating the entire state machine sequence live in PPSSPP.
 
 ---
 
 # Deliverables Completed
 
-* **Desktop CMake Updates**: Integratedpkg-config checks for `libusb-1.0` and linked the library target to the Desktop Companion executable.
-* **Desktop libusb-1.0 Transport**: Wrote the C++ code to open the device, claim interface 0, handle active kernel drivers, and perform bulk transfers.
-* **PSP Kernel Mode Configuration**: Updated `main.c` and `Makefile` to run the EBOOT in kernel mode and link to `pspusbbus_driver` and `pspusb_driver` libs.
-* **PSP USB Driver**: Wrote C code to register the USB driver, configure descriptor tables, manage MIPS DMA cache lines (writeback/invalidation), and queue Bulk transfers.
-* **Asynchronous Check Loop**: Polled timed event flags in `transport_receive()` to avoid blocking the frame rendering loop.
-* **Emulator Mock Fallback**: Added loopback fallback logic when hardware USB is unavailable (e.g. under PPSSPP).
+* **Shared Static Library**: Protocol module converted from `INTERFACE` to `STATIC`.
+* **Explicit Packet Serialization**: Built byte-level packing/unpacking routines (`packet.c`).
+* **Desktop Companion Handshake Loop**: Broadcaster and receiver state machine loop (`main.cpp`).
+* **PSP Client Handshake Loop**: Receiver, responder, and visual state printer (`main.c`).
+* **PSP Watchdog Timer**: 5-second inactivity watchdog.
+* **Emulator Mock simulation**: Custom timed packet injection for easy visual debugging.
 
 ---
 
 # Verification Summary
 
-* **Desktop Compilation**: Verified that the Desktop Companion compiles under WSL with zero warnings/errors.
-* **PSP Compilation**: Verified that the PSP EBOOT compiles and packages successfully under WSL.
-* **PPSSPP Emulator Validation**: Loaded the EBOOT on PPSSPP; it successfully initialized the display and controller, printed the fallback warning on screen, and responded to START button exit cleanly.
+* **Desktop Companion Build**: Builds and links against `libpspdevlink_protocol.a` under WSL.
+* **PSP Client Build**: Compiles and links against `../../shared/protocol/src/packet.o` under WSL.
+* **PPSSPP Emulator Validation**: Loaded the EBOOT on PPSSPP; observed state transitioning dynamically:
+  1. Displays `Waiting for Host Connection...`
+  2. Handshake succeeds and prints `Handshake Complete! Connected to Host.`
+  3. Receives simulated heartbeats.
+  4. Heartbeats stop and watchdog triggers disconnection warning: `Connection Timeout. Disconnected.`
 
 ---
 
 # Remaining Work
 
-* Protocol handshake implementation.
-* Packet serialization and deserialization.
-* Runtime message routing and processing.
-* User interface and state machine management.
+* Message processing (defining individual payload structs and routing packet payloads to message handlers).
+* Desktop system service integration (CPU load, git status, notifications collection).
+* PSP graphics rendering engine (visual dashboard panel).
 
 ---
 
 # Recommended Next Milestone
 
-**Milestone 5 — Handshake and Packet Serialization**
+**Milestone 6 — Message Processing and Routing**
 
-Focus on establishing a robust communication session:
-1. Implement a handshake protocol where the PSP client and Desktop Companion exchange version info to establish a link.
-2. Implement packet serialization and validation structures based on the `PSPDL_PacketHeader` to frame inter-device messages.
+Focus on routing different packet types:
+1. Define structures for payloads (e.g. system status updates, git status updates, console output payloads).
+2. Implement a dispatcher on the PSP client that parses the `message_id` and forwards the payload to its corresponding handler.
+3. Implement encoder helpers on the Desktop Companion to wrap system data into message payloads.
 
 ---
 

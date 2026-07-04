@@ -1,4 +1,6 @@
 #include <protocol/transport.h>
+#include <protocol/packet.h>
+#include <protocol/version.h>
 
 #include <pspkernel.h>
 #include <pspusb.h>
@@ -482,6 +484,53 @@ PSPDL_TransportResult transport_receive(
 
     if (g_mock_mode)
     {
+        static uint32_t mock_ticks = 0;
+        mock_ticks++;
+
+        // Inject HELLO packet after 3 seconds (300 ticks, assuming 10ms loop delay)
+        if (mock_ticks == 300)
+        {
+            PSPDL_PacketHeader hello_hdr;
+            hello_hdr.magic = PSPDL_PROTOCOL_MAGIC;
+            hello_hdr.protocol_version = (PSPDL_PROTOCOL_VERSION_MAJOR << 8) | PSPDL_PROTOCOL_VERSION_MINOR;
+            hello_hdr.message_id = PSPDL_MESSAGE_HELLO;
+            hello_hdr.payload_size = 0;
+
+            uint8_t temp[PSPDL_PACKET_HEADER_SIZE];
+            pspl_serialize_header(&hello_hdr, temp, sizeof(temp));
+
+            if (g_mock_buffer_size + PSPDL_PACKET_HEADER_SIZE <= sizeof(g_mock_buffer))
+            {
+                memcpy(g_mock_buffer + g_mock_buffer_size, temp, PSPDL_PACKET_HEADER_SIZE);
+                g_mock_buffer_size += PSPDL_PACKET_HEADER_SIZE;
+                pspDebugScreenPrintf("[MOCK] Injecting HELLO from Host...\n");
+            }
+        }
+
+        // Inject HEARTBEAT packets every 2 seconds (200 ticks) after connection is established (ticks > 300)
+        if (mock_ticks > 300 && (mock_ticks - 300) % 200 == 0)
+        {
+            // Inject HEARTBEAT only if mock_ticks is less than 1500 (simulate connection for 12 seconds, then stop to test watchdog!)
+            if (mock_ticks < 1500)
+            {
+                PSPDL_PacketHeader hb_hdr;
+                hb_hdr.magic = PSPDL_PROTOCOL_MAGIC;
+                hb_hdr.protocol_version = (PSPDL_PROTOCOL_VERSION_MAJOR << 8) | PSPDL_PROTOCOL_VERSION_MINOR;
+                hb_hdr.message_id = PSPDL_MESSAGE_HEARTBEAT;
+                hb_hdr.payload_size = 0;
+
+                uint8_t temp[PSPDL_PACKET_HEADER_SIZE];
+                pspl_serialize_header(&hb_hdr, temp, sizeof(temp));
+
+                if (g_mock_buffer_size + PSPDL_PACKET_HEADER_SIZE <= sizeof(g_mock_buffer))
+                {
+                    memcpy(g_mock_buffer + g_mock_buffer_size, temp, PSPDL_PACKET_HEADER_SIZE);
+                    g_mock_buffer_size += PSPDL_PACKET_HEADER_SIZE;
+                    pspDebugScreenPrintf("[MOCK] Injecting HEARTBEAT...\n");
+                }
+            }
+        }
+
         if (g_mock_buffer_size > 0)
         {
             size_t read_size = size < g_mock_buffer_size ? size : g_mock_buffer_size;

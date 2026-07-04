@@ -14,7 +14,7 @@ PSP DevLink
 
 # Current Milestone
 
-Milestone 4 — USB Transport Implementation
+Milestone 5 — Handshake and Packet Serialization
 
 Status: COMPLETED (VERIFIED IN EMULATOR FALLBACK)
 
@@ -22,9 +22,7 @@ Status: COMPLETED (VERIFIED IN EMULATOR FALLBACK)
 
 # Objective
 
-Implement the first transport backend that enables reliable raw byte communication between the Desktop Companion and the PSP application while preserving the transport abstraction established in the previous milestone.
-
-This milestone focuses exclusively on transport implementation and does not introduce protocol processing or user-facing functionality.
+Establish a communication session protocol between the Desktop Companion and the PSP. Implement a byte-level serialization layer for the `PSPDL_PacketHeader` and define the handshake state machine logic on both targets to ensure connection reliability.
 
 ---
 
@@ -32,23 +30,22 @@ This milestone focuses exclusively on transport implementation and does not intr
 
 Completed during this milestone:
 
-* platform-specific transport architecture
-* shared transport interface
-* Desktop transport backend integration
-* PSP transport backend integration
-* Desktop build verification
-* PSP build verification
-* transport implementation refactor
-* USB transport communication (hardware drivers & custom descriptors)
-* Graceful emulator mock loopback fallback for PPSSPP
-* libusb-1.0 integration on Desktop Companion
+* Convert `pspdevlink_protocol` to a CMake STATIC library
+* Implement Little-Endian explicit packet header serialization/deserialization (`packet.c`)
+* Declare serialization functions with `extern "C"` linkage in `packet.h`
+* Update PSP Makefile to compile and link shared protocol files
+* Implement Desktop Companion handshake loop and heartbeat broadcast (`main.cpp`)
+* Implement PSP Client handshake loop and connection status rendering (`main.c`)
+* Implement 5-second inactivity watchdog timer on PSP
+* Develop interactive visual mock packet simulation for PPSSPP verification
 
-Current implementation has fully implemented the USB Transport APIs. Real hardware calls MIPS-aligned DMA and driver registrations, while emulator environment falls back gracefully to Mock loopback mode.
+Current implementation provides a fully operational handshake and packet serialization protocol. Both applications transition connection states dynamically and handle timeouts gracefully.
 
 Not yet implemented:
 
-* protocol handshake
-* packet serialization
+* message processing (routing payloads to specific handlers)
+* Desktop services (CPU/Git monitoring)
+* PSP graphics rendering engine (visual dashboard)
 * message processing
 * session management
 * runtime communication
@@ -110,11 +107,11 @@ Repository Status
 * Milestone 2 repository restructuring completed
 * Milestone 3 communication foundation completed
 * Milestone 4 USB Transport Implementation completed
-* Shared protocol module converted to an INTERFACE library
-* Platform-specific transport backends established
-* Desktop build verified
-* PSP build verified
-* USB transport communication (hardware/mock fallback) verified
+* Milestone 5 Handshake and Packet Serialization completed
+* Shared protocol module converted to a STATIC library with packet serialization
+* Platform-specific transport backends established and linked
+* Handshake loops and watchdogs implemented on both targets
+* Interactive mock handshake simulation verified on PPSSPP
 * Pending push to remote repository
 
 ---

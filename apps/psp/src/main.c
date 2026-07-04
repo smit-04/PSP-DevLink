@@ -36,6 +36,14 @@ int setup_callbacks(void)
 }
 
 #include <protocol/transport.h>
+#include <protocol/packet.h>
+#include <protocol/version.h>
+
+typedef enum
+{
+    STATE_DISCONNECTED,
+    STATE_CONNECTED
+} ConnectionState;
 
 int main(void)
 {
@@ -50,7 +58,7 @@ int main(void)
     pspDebugScreenPrintf("        PSP DevLink\n");
     pspDebugScreenPrintf("=================================\n\n");
 
-    pspDebugScreenPrintf("Milestone 4 USB Transport Setup\n\n");
+    pspDebugScreenPrintf("Milestone 5 Handshake Setup\n\n");
 
     pspDebugScreenPrintf("[OK] Display Initialized\n");
     pspDebugScreenPrintf("[OK] Controller Initialized\n");
@@ -60,25 +68,93 @@ int main(void)
     PSPDL_TransportResult trans_res = transport_initialize();
     if (trans_res == PSPDL_TRANSPORT_OK)
     {
-        pspDebugScreenPrintf("[OK] USB Transport Init Success\n\n");
+        pspDebugScreenPrintf("[OK] USB Transport Init Success\n");
     }
     else
     {
-        pspDebugScreenPrintf("[FAIL] USB Transport Init Error: %d\n\n", trans_res);
+        pspDebugScreenPrintf("[FAIL] USB Transport Init Error: %d\n", trans_res);
+        sceKernelDelayThread(5000000);
+        sceKernelExitGame();
+        return 0;
     }
 
-    pspDebugScreenPrintf("Press START to exit...\n");
+    pspDebugScreenPrintf("[INFO] Waiting for Host Connection...\n\n");
+    pspDebugScreenPrintf("Press START to exit...\n\n");
+
+    ConnectionState state = STATE_DISCONNECTED;
+    uint32_t ticks_since_last_packet = 0;
 
     while (1)
     {
         SceCtrlData pad;
-
         sceCtrlReadBufferPositive(&pad, 1);
 
         if (pad.Buttons & PSP_CTRL_START)
             break;
-        
-        // Yield CPU slightly to keep emulator/hardware happy
+
+        // Try to receive a packet header
+        uint8_t rx_buf[PSPDL_PACKET_HEADER_SIZE];
+        size_t received = 0;
+        PSPDL_TransportResult read_res = transport_receive(rx_buf, sizeof(rx_buf), &received);
+
+        if (read_res == PSPDL_TRANSPORT_OK && received >= PSPDL_PACKET_HEADER_SIZE)
+        {
+            PSPDL_PacketHeader rx_hdr;
+            if (pspl_deserialize_header(rx_buf, received, &rx_hdr) == 0)
+            {
+                ticks_since_last_packet = 0; // reset watchdog
+
+                if (state == STATE_DISCONNECTED && rx_hdr.message_id == PSPDL_MESSAGE_HELLO)
+                {
+                    // Validate protocol version
+                    uint16_t expected_ver = (PSPDL_PROTOCOL_VERSION_MAJOR << 8) | PSPDL_PROTOCOL_VERSION_MINOR;
+                    if (rx_hdr.protocol_version == expected_ver)
+                    {
+                        // Send HELLO packet response back to Host
+                        PSPDL_PacketHeader tx_hdr;
+                        tx_hdr.magic = PSPDL_PROTOCOL_MAGIC;
+                        tx_hdr.protocol_version = expected_ver;
+                        tx_hdr.message_id = PSPDL_MESSAGE_HELLO;
+                        tx_hdr.payload_size = 0;
+
+                        uint8_t tx_buf[PSPDL_PACKET_HEADER_SIZE];
+                        pspl_serialize_header(&tx_hdr, tx_buf, sizeof(tx_buf));
+
+                        if (transport_send(tx_buf, sizeof(tx_buf)) == PSPDL_TRANSPORT_OK)
+                        {
+                            state = STATE_CONNECTED;
+                            pspDebugScreenPrintf("[OK] Handshake Complete! Connected to Host.\n");
+                        }
+                    }
+                    else
+                    {
+                        pspDebugScreenPrintf("[WARN] Protocol Version Mismatch: %d.%d\n", 
+                                             (rx_hdr.protocol_version >> 8), (rx_hdr.protocol_version & 0xFF));
+                    }
+                }
+            }
+        }
+        else if (read_res == PSPDL_TRANSPORT_ERROR)
+        {
+            if (state == STATE_CONNECTED)
+            {
+                state = STATE_DISCONNECTED;
+                pspDebugScreenPrintf("[WARN] Transport Error. Disconnected from Host.\n");
+            }
+        }
+
+        // Connection Watchdog timeout check
+        if (state == STATE_CONNECTED)
+        {
+            ticks_since_last_packet++;
+            if (ticks_since_last_packet > 500) // 5 seconds (500 * 10ms)
+            {
+                state = STATE_DISCONNECTED;
+                pspDebugScreenPrintf("[WARN] Connection Timeout. Disconnected.\n");
+            }
+        }
+
+        // Delay 10ms per iteration (10,000 microseconds)
         sceKernelDelayThread(10000);
     }
 

@@ -2,7 +2,8 @@ TARGET = PSPDevLink
 
 OBJS = \
     src/main.o \
-    src/transport_usb.o
+    src/transport_usb.o \
+    ../../shared/protocol/src/packet.o
 
 BUILD_PRX = 0
 
