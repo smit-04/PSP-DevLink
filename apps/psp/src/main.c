@@ -80,6 +80,16 @@ int main(void)
         if (pad.Buttons & PSP_CTRL_START || g_remote_command == 1)
             break;
 
+        // Local shortcuts to simulate remote command packets in Emulator Mode
+        if ((pad.Buttons & PSP_CTRL_SELECT) && (pad.Buttons & PSP_CTRL_SQUARE))
+        {
+            g_remote_command = 1; // Simulate Exit command
+        }
+        if ((pad.Buttons & PSP_CTRL_SELECT) && (pad.Buttons & PSP_CTRL_TRIANGLE))
+        {
+            g_remote_command = 2; // Simulate Reboot command
+        }
+
         if (g_remote_command == 2)
         {
             sceKernelDelayThread(100000);
