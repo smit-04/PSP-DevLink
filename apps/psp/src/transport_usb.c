@@ -565,6 +565,37 @@ PSPDL_TransportResult transport_receive(
             }
         }
 
+        // Inject simulated Notification payload after 12 seconds (1200 ticks)
+        if (mock_ticks == 1200)
+        {
+            PSPDL_NotificationPayload notif;
+            memset(&notif, 0, sizeof(notif));
+            
+            const char *app = "Slack";
+            const char *summary = "New message from @alex";
+            const char *body = "Hey, did you finish compiling the PSP EBOOT?";
+            
+            for (int i = 0; i < 23 && app[i] != '\0'; i++) notif.app_name[i] = app[i];
+            for (int i = 0; i < 51 && summary[i] != '\0'; i++) notif.summary[i] = summary[i];
+            for (int i = 0; i < 51 && body[i] != '\0'; i++) notif.body[i] = body[i];
+
+            PSPDL_PacketHeader hdr;
+            hdr.magic = PSPDL_PROTOCOL_MAGIC;
+            hdr.protocol_version = (PSPDL_PROTOCOL_VERSION_MAJOR << 8) | PSPDL_PROTOCOL_VERSION_MINOR;
+            hdr.message_id = PSPDL_MESSAGE_NOTIFICATION;
+            hdr.payload_size = PSPDL_PAYLOAD_NOTIFICATION_SIZE;
+
+            uint8_t temp[PSPDL_PACKET_HEADER_SIZE + PSPDL_PAYLOAD_NOTIFICATION_SIZE];
+            pspl_serialize_header(&hdr, temp, PSPDL_PACKET_HEADER_SIZE);
+            pspl_serialize_notification(&notif, temp + PSPDL_PACKET_HEADER_SIZE, PSPDL_PAYLOAD_NOTIFICATION_SIZE);
+
+            if (g_mock_buffer_size + sizeof(temp) <= sizeof(g_mock_buffer))
+            {
+                memcpy(g_mock_buffer + g_mock_buffer_size, temp, sizeof(temp));
+                g_mock_buffer_size += sizeof(temp);
+            }
+        }
+
         // Inject HEARTBEAT packets every 2 seconds (200 ticks) after connection is established (ticks > 300)
         if (mock_ticks > 300 && (mock_ticks - 300) % 200 == 0)
         {
