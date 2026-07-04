@@ -1,5 +1,6 @@
 #include "ui.h"
 #include <pspdebug.h>
+#include <pspdisplay.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -14,207 +15,213 @@ void ui_init(void)
     pspDebugScreenClear();
 }
 
+/* Draw a 10-char wide progress bar at absolute column/row position */
 static void draw_progress_bar(int x, int y, int val, int max_val, uint32_t bar_color)
 {
     pspDebugScreenSetXY(x, y);
     pspDebugScreenSetTextColor(0xFFCCCCCC);
     pspDebugScreenPrintf("[");
-    
+
     int bar_width = 10;
-    int filled = (val * bar_width) / max_val;
+    int filled = (max_val > 0) ? (val * bar_width) / max_val : 0;
     if (filled > bar_width) filled = bar_width;
-    if (filled < 0) filled = 0;
-    
+    if (filled < 0)         filled = 0;
+
     pspDebugScreenSetTextColor(bar_color);
     for (int i = 0; i < filled; i++)
-    {
         pspDebugScreenPrintf("#");
-    }
+
     pspDebugScreenSetTextColor(0xFF444444);
     for (int i = filled; i < bar_width; i++)
-    {
         pspDebugScreenPrintf("-");
-    }
-    
+
     pspDebugScreenSetTextColor(0xFFCCCCCC);
     pspDebugScreenPrintf("]");
 }
 
+/*
+ * PSP debug-screen character grid: 68 cols x 34 rows.
+ * Layout (col indices are 0-based):
+ *
+ *  Row 0-2   : header border + title
+ *  Row 4     : link-status line
+ *  Row 6-16  : two 30-char cards side by side
+ *               Left  card : cols  1 .. 32
+ *               Right card : cols 34 .. 65
+ *  Row 18-21 : footer border + help text
+ */
 void ui_render(
     UIConnectionState conn_state,
     const PSPDL_SystemStatsPayload *stats,
     const PSPDL_GitStatusPayload *git)
 {
-    // Move to (0, 0) and redraw everything. Overwriting avoids flickering!
+    /* ---- vsync: wait for vertical blank so we draw during the off-screen
+            period — this is the standard fix for PSP debug-screen flicker ---- */
+    sceDisplayWaitVblankStart();
+
+    /* ===== HEADER ===== */
     pspDebugScreenSetXY(0, 0);
-    
-    // Draw main header border
     pspDebugScreenSetTextColor(0xFF888888);
-    pspDebugScreenPrintf("+-----------------------------------------------------------------+\n");
-    pspDebugScreenPrintf("|                 ");
-    pspDebugScreenSetTextColor(0xFFFFFF00); // Cyan title
+    pspDebugScreenPrintf("+---------------------------------------------------------------+");
+
+    pspDebugScreenSetXY(0, 1);
+    pspDebugScreenPrintf("|              ");
+    pspDebugScreenSetTextColor(0xFFFFFF00);           /* cyan */
     pspDebugScreenPrintf("PSP DEVLINK COMPANION DASHBOARD");
     pspDebugScreenSetTextColor(0xFF888888);
-    pspDebugScreenPrintf("                 |\n");
-    pspDebugScreenPrintf("+-----------------------------------------------------------------+\n\n");
+    pspDebugScreenPrintf("               |");
 
-    // Draw connection status line
+    pspDebugScreenSetXY(0, 2);
+    pspDebugScreenPrintf("+---------------------------------------------------------------+");
+
+    /* ===== LINK STATUS ===== */
     pspDebugScreenSetXY(2, 4);
     pspDebugScreenSetTextColor(0xFFFFFFFF);
     pspDebugScreenPrintf("Link Status: ");
     if (conn_state == UI_CONN_CONNECTED)
     {
-        pspDebugScreenSetTextColor(0xFF00FF00); // Green
-        pspDebugScreenPrintf("[ CONNECTED ]               ");
+        pspDebugScreenSetTextColor(0xFF00FF00);       /* green  */
+        pspDebugScreenPrintf("[ CONNECTED ]              ");
     }
     else
     {
-        pspDebugScreenSetTextColor(0xFF00FFFF); // Yellow
+        pspDebugScreenSetTextColor(0xFF00FFFF);       /* yellow */
         pspDebugScreenPrintf("[ SEARCHING FOR HOST... ]  ");
     }
 
-    // Left Card: System Performance
+    /* ===== LEFT CARD border — cols 1-32, rows 6-16 ===== */
     pspDebugScreenSetTextColor(0xFF888888);
-    pspDebugScreenSetXY(2, 6);
-    pspDebugScreenPrintf("+--------- SYSTEM TELEMETRY -------+");
+
+    pspDebugScreenSetXY(1, 6);
+    pspDebugScreenPrintf("+---- SYSTEM TELEMETRY ----+");
+
     for (int j = 1; j <= 9; j++)
     {
-        pspDebugScreenSetXY(2, 6 + j);
-        pspDebugScreenPrintf("|                                  |");
+        pspDebugScreenSetXY(1, 6 + j);
+        pspDebugScreenPrintf("|                          |");
     }
-    pspDebugScreenSetXY(2, 16);
-    pspDebugScreenPrintf("+----------------------------------+");
 
-    // Right Card: Git Status
-    pspDebugScreenSetTextColor(0xFF888888);
-    pspDebugScreenSetXY(38, 6);
-    pspDebugScreenPrintf("+------- GIT WORKSPACE STATUS -----+");
+    pspDebugScreenSetXY(1, 16);
+    pspDebugScreenPrintf("+--------------------------+");
+
+    /* ===== RIGHT CARD border — cols 34-65, rows 6-16 ===== */
+    pspDebugScreenSetXY(34, 6);
+    pspDebugScreenPrintf("+--- GIT WORKSPACE STATUS --+");
+
     for (int j = 1; j <= 9; j++)
     {
-        pspDebugScreenSetXY(38, 6 + j);
-        pspDebugScreenPrintf("|                                  |");
+        pspDebugScreenSetXY(34, 6 + j);
+        pspDebugScreenPrintf("|                           |");
     }
-    pspDebugScreenSetXY(38, 16);
-    pspDebugScreenPrintf("+----------------------------------+");
 
-    // Fill System Card Content
+    pspDebugScreenSetXY(34, 16);
+    pspDebugScreenPrintf("+---------------------------+");
+
+    /* ===== LEFT CARD content ===== */
     if (conn_state == UI_CONN_CONNECTED && stats != NULL)
     {
-        // CPU Usage
-        pspDebugScreenSetXY(4, 8);
+        /* CPU bar */
+        pspDebugScreenSetXY(3, 8);
         pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("CPU Load: ");
-        draw_progress_bar(15, 8, stats->cpu_usage, 100, 0xFF00FF00); // Green bar
-        pspDebugScreenSetXY(28, 8);
+        pspDebugScreenPrintf("CPU: ");
+        draw_progress_bar(8, 8, (int)stats->cpu_usage, 100, 0xFF00FF00);
+        pspDebugScreenSetXY(20, 8);
         pspDebugScreenSetTextColor(0xFFFFFFFF);
-        pspDebugScreenPrintf("%3d%%", stats->cpu_usage);
+        pspDebugScreenPrintf("%3d%%", (int)stats->cpu_usage);
 
-        // RAM Usage
-        pspDebugScreenSetXY(4, 10);
+        /* RAM bar */
+        pspDebugScreenSetXY(3, 10);
         pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("RAM Load: ");
-        draw_progress_bar(15, 10, stats->ram_usage, 100, 0xFF00FF00);
-        pspDebugScreenSetXY(28, 10);
+        pspDebugScreenPrintf("RAM: ");
+        draw_progress_bar(8, 10, (int)stats->ram_usage, 100, 0xFF00FF00);
+        pspDebugScreenSetXY(20, 10);
         pspDebugScreenSetTextColor(0xFFFFFFFF);
-        pspDebugScreenPrintf("%3d%%", stats->ram_usage);
+        pspDebugScreenPrintf("%3d%%", (int)stats->ram_usage);
 
-        // CPU Temperature
-        pspDebugScreenSetXY(4, 12);
+        /* CPU temp */
+        pspDebugScreenSetXY(3, 12);
         pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("CPU Temp:  ");
+        pspDebugScreenPrintf("Temp: ");
         pspDebugScreenSetTextColor(0xFFFFFFFF);
-        pspDebugScreenPrintf("%4d.%d C", stats->cpu_temp / 10, stats->cpu_temp % 10);
+        pspDebugScreenPrintf("%3d.%d C ", (int)(stats->cpu_temp / 10),
+                                          (int)(stats->cpu_temp % 10));
 
-        // Memory Sizes
+        /* Free memory */
         double total_gb = (double)stats->ram_total / (1024.0 * 1024.0 * 1024.0);
-        double free_gb = (double)stats->ram_free / (1024.0 * 1024.0 * 1024.0);
-        pspDebugScreenSetXY(4, 14);
+        double free_gb  = (double)stats->ram_free  / (1024.0 * 1024.0 * 1024.0);
+        pspDebugScreenSetXY(3, 14);
         pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("Free Mem:  ");
+        pspDebugScreenPrintf("Mem:  ");
         pspDebugScreenSetTextColor(0xFFFFFFFF);
-        pspDebugScreenPrintf("%5.2f / %5.2f GB", free_gb, total_gb);
+        pspDebugScreenPrintf("%.1f/%.1f GB ", free_gb, total_gb);
     }
     else
     {
-        // Default Empty State
-        pspDebugScreenSetTextColor(0xFF666666);
-        pspDebugScreenSetXY(4, 8);
-        pspDebugScreenPrintf("CPU Load:  [----------]   --%%");
-        pspDebugScreenSetXY(4, 10);
-        pspDebugScreenPrintf("RAM Load:  [----------]   --%%");
-        pspDebugScreenSetXY(4, 12);
-        pspDebugScreenPrintf("CPU Temp:  --.- C");
-        pspDebugScreenSetXY(4, 14);
-        pspDebugScreenPrintf("Free Mem:  --.-- / --.-- GB");
+        pspDebugScreenSetTextColor(0xFF555555);
+        pspDebugScreenSetXY(3, 8);
+        pspDebugScreenPrintf("CPU: [----------] --%%");
+        pspDebugScreenSetXY(3, 10);
+        pspDebugScreenPrintf("RAM: [----------] --%%");
+        pspDebugScreenSetXY(3, 12);
+        pspDebugScreenPrintf("Temp:  --.- C      ");
+        pspDebugScreenSetXY(3, 14);
+        pspDebugScreenPrintf("Mem:  --.-- GB    ");
     }
 
-    // Fill Git Card Content
+    /* ===== RIGHT CARD content ===== */
     if (conn_state == UI_CONN_CONNECTED && git != NULL)
     {
-        // Branch
-        pspDebugScreenSetXY(40, 8);
+        /* Branch */
+        pspDebugScreenSetXY(36, 8);
         pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("Branch:    ");
-        pspDebugScreenSetTextColor(0xFFFFFF00); // Cyan branch
-        pspDebugScreenPrintf("%-20s", git->branch_name);
+        pspDebugScreenPrintf("Branch: ");
+        pspDebugScreenSetTextColor(0xFFFFFF00);       /* cyan */
+        pspDebugScreenPrintf("%-14s", git->branch_name);
 
-        // Modified Files
-        pspDebugScreenSetXY(40, 10);
+        /* Modified */
+        pspDebugScreenSetXY(36, 10);
         pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("Modified:  ");
-        if (git->modified_files > 0)
-        {
-            pspDebugScreenSetTextColor(0xFF0000FF); // Red if dirty
-        }
-        else
-        {
-            pspDebugScreenSetTextColor(0xFF00FF00); // Green if clean
-        }
-        pspDebugScreenPrintf("%-4u files", (unsigned int)git->modified_files);
+        pspDebugScreenPrintf("Modif:  ");
+        pspDebugScreenSetTextColor(git->modified_files > 0 ? 0xFF0000FF : 0xFF00FF00);
+        pspDebugScreenPrintf("%-3u files ", (unsigned int)git->modified_files);
 
-        // Untracked Files
-        pspDebugScreenSetXY(40, 12);
+        /* Untracked */
+        pspDebugScreenSetXY(36, 12);
         pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("Untracked: ");
-        if (git->untracked_files > 0)
-        {
-            pspDebugScreenSetTextColor(0xFF00FFFF); // Yellow if untracked
-        }
-        else
-        {
-            pspDebugScreenSetTextColor(0xFF00FF00); // Green if clean
-        }
-        pspDebugScreenPrintf("%-4u files", (unsigned int)git->untracked_files);
+        pspDebugScreenPrintf("Untrk:  ");
+        pspDebugScreenSetTextColor(git->untracked_files > 0 ? 0xFF00FFFF : 0xFF00FF00);
+        pspDebugScreenPrintf("%-3u files ", (unsigned int)git->untracked_files);
 
-        // Worktree
-        pspDebugScreenSetXY(40, 14);
+        /* Worktree */
+        pspDebugScreenSetXY(36, 14);
         pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("Worktree:  ");
+        pspDebugScreenPrintf("Tree:   ");
         pspDebugScreenSetTextColor(0xFF00FF00);
-        pspDebugScreenPrintf("ACTIVE");
+        pspDebugScreenPrintf("ACTIVE  ");
     }
     else
     {
-        // Default Empty State
-        pspDebugScreenSetTextColor(0xFF666666);
-        pspDebugScreenSetXY(40, 8);
-        pspDebugScreenPrintf("Branch:    --");
-        pspDebugScreenSetXY(40, 10);
-        pspDebugScreenPrintf("Modified:  -- files");
-        pspDebugScreenSetXY(40, 12);
-        pspDebugScreenPrintf("Untracked: -- files");
-        pspDebugScreenSetXY(40, 14);
-        pspDebugScreenPrintf("Worktree:  INACTIVE");
+        pspDebugScreenSetTextColor(0xFF555555);
+        pspDebugScreenSetXY(36, 8);
+        pspDebugScreenPrintf("Branch: --            ");
+        pspDebugScreenSetXY(36, 10);
+        pspDebugScreenPrintf("Modif:  -- files      ");
+        pspDebugScreenSetXY(36, 12);
+        pspDebugScreenPrintf("Untrk:  -- files      ");
+        pspDebugScreenSetXY(36, 14);
+        pspDebugScreenPrintf("Tree:   INACTIVE      ");
     }
 
-    // Bottom info block
+    /* ===== FOOTER ===== */
     pspDebugScreenSetTextColor(0xFF888888);
     pspDebugScreenSetXY(0, 18);
-    pspDebugScreenPrintf("\n+-----------------------------------------------------------------+\n");
+    pspDebugScreenPrintf("+---------------------------------------------------------------+");
+    pspDebugScreenSetXY(0, 19);
     pspDebugScreenPrintf("| Press ");
     pspDebugScreenSetTextColor(0xFFFFFF00);
     pspDebugScreenPrintf("START");
     pspDebugScreenSetTextColor(0xFF888888);
-    pspDebugScreenPrintf(" to exit client application                              |\n");
-    pspDebugScreenPrintf("+-----------------------------------------------------------------+\n");
+    pspDebugScreenPrintf(" to exit client application                          |");
+    pspDebugScreenSetXY(0, 20);
+    pspDebugScreenPrintf("+---------------------------------------------------------------+");
 }
