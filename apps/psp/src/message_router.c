@@ -6,6 +6,7 @@ PSPDL_SystemStatsPayload g_current_stats;
 PSPDL_GitStatusPayload g_current_git;
 PSPDL_NotificationPayload g_current_notif;
 uint8_t g_remote_command = 0;
+uint8_t g_new_notification_received = 0;
 
 int router_dispatch(
     const PSPDL_PacketHeader *header,
@@ -47,6 +48,7 @@ int router_dispatch(
         int ret = pspl_deserialize_notification(payload_buf, header->payload_size, &g_current_notif);
         if (ret == 0)
         {
+            g_new_notification_received = 1;
             return 0;
         }
         else

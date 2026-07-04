@@ -202,12 +202,6 @@ void ui_render(
     const PSPDL_GitStatusPayload *git,
     const PSPDL_NotificationPayload *notif)
 {
-    // Check if the notif is new and not empty
-    if (notif != NULL && notif->app_name[0] != '\0')
-    {
-        ui_add_notification(notif);
-    }
-
     /* ---- vsync: wait for vertical blank so we draw during the off-screen
             period — this is the standard fix for PSP debug-screen flicker ---- */
     sceDisplayWaitVblankStart();

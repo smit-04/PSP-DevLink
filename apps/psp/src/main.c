@@ -235,6 +235,13 @@ int main(void)
             }
         }
 
+        // Add new notification to UI history cache if received
+        if (g_new_notification_received)
+        {
+            ui_add_notification(&g_current_notif);
+            g_new_notification_received = 0;
+        }
+
         // Render dashboard GUI
         UIConnectionState ui_state = (state == STATE_CONNECTED) ? UI_CONN_CONNECTED : UI_CONN_DISCONNECTED;
         ui_render(ui_state, &g_current_stats, &g_current_git, &g_current_notif);
