@@ -14,7 +14,7 @@ PSP DevLink
 
 # Current Milestone
 
-Milestone 11 — PSP Notification Card Overlay Popups
+Milestone 12 — Desktop Companion Web GUI Dashboard
 
 Status: COMPLETED (VERIFIED IN EMULATOR)
 
@@ -22,7 +22,7 @@ Status: COMPLETED (VERIFIED IN EMULATOR)
 
 # Objective
 
-Implement visual popup overlay cards on the PSP Client UI to alert users on incoming notifications, and support debounced controller bindings for close actions and full list drawers.
+Develop an interactive, browser-based Web GUI dashboard for the Desktop Companion, utilizing an embedded socket server, REST JSON APIs, and a dark theme.
 
 ---
 
@@ -30,17 +30,16 @@ Implement visual popup overlay cards on the PSP Client UI to alert users on inco
 
 Completed during this milestone:
 
-* Implement static history queue caching last 5 notification payloads in `ui.c`
-* Render visually centered modal boxes mapping app, title, and body elements
-* Setup 5-second automatic close ticks decrementing frame-by-frame
-* Map CIRCLE inputs to dismiss modal dialogs and clear history listings
-* Map SELECT inputs to toggle history drawer overlay panels on the dashboard
+* Create static `index_html.h` serving a self-contained HTML/CSS/JS template
+* Implement TCP socket HTTP server in `http_server.cpp` binding to port `8080`
+* Add REST routes `GET /api/status`, `POST /api/config`, and `POST /api/control`
+* Thread-safely share configurations and telemetry caches between main loop and server
+* Expose remote command button triggers in GUI linked to exit/reboot packets
 
-Current implementation supports dynamically alerting the user about notifications with countdown dismissals.
+Current implementation hosts a localhost web interface that displays telemetry graphs and sends exit/reboot commands.
 
 Not yet implemented:
 
-* Desktop GUI configurations settings page
 * message processing
 * session management
 
@@ -177,10 +176,11 @@ Implemented:
 * Remote console reboot and shutdown routines
 * Visual popup overlay cards and auto-hide display timers
 * Scrolling notification history cache and drawer interface
+* Local TCP Web GUI Dashboard server and REST API endpoints
 
 Not Yet Implemented:
 
-* Desktop GUI configurations settings page
+* Packaging and installation scripts
 
 ---
 
@@ -206,7 +206,7 @@ Real USB transport communication between Windows/WSL and PPSSPP is not emulated;
 
 # Next Task
 
-Milestone 12 — Desktop Companion GUI App.
+Milestone 13 — Packaging and Release.
 
 ---
 

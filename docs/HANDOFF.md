@@ -1,42 +1,46 @@
 # HANDOFF.md
 
-Milestone: Milestone 11 — PSP Notification Card Overlay Popups
+Milestone: Milestone 12 — Desktop Companion Web GUI Dashboard
 
-Status: Completed (Overlay modal cards, 5-second automatic close timers, and Select-toggled scroll drawers verified in PPSSPP)
+Status: Completed (Local TCP HTTP server, REST endpoints, HTML templates, and cross-thread remote command bindings compiled and validated under WSL)
 
 ---
 
 # Summary
 
-Milestone 11 has been successfully completed. We implemented visual alert popups, overlay display timers, and a rolling log history drawer on the PSP Client target.
+Milestone 12 has been successfully completed. We transitioned the Desktop Companion from a console CLI to a browser-based local Web GUI Dashboard.
 
-1. **Popup Overlays**: Renders a visually centered modal box (Columns 10-57, Rows 7-15) on incoming notifications. Shows app headers, title wraps, body wraps, and countdown timers.
-2. **Auto-Dismiss Lifecycle**: Decrements frame-by-frame (500 ticks at 10ms frame rates) to hide the popup after 5 seconds, or closes instantly on `CIRCLE` button presses.
-3. **Notification Drawer (History)**: Caches the last 5 incoming payloads in a queue. Pressing `SELECT` toggles the drawer, swapping standard metrics cards with log lines. Pressing `CIRCLE` clears the log.
+1. **Lightweight Socket Listener**: Implemented `HttpServer` inside the companion running on a background thread, binding to port `8080`.
+2. **REST API endpoints**:
+  * `GET /api/status`: Returns JSON of connections and statistics.
+  * `POST /api/config`: Updates intervals in `config.ini`.
+  * `POST /api/control?action=exit|reboot`: Toggles atomic flags checked by the USB loop.
+3. **HTML Page Design**: Created a premium dark-themed gradient interface featuring frosted glass layout containers, glow selectors, and event logs.
 
 ---
 
 # Deliverables Completed
 
-* **UI Overlay modules**: Coded overlay rendering interfaces.
-* **Auto-close timers**: Linked frame-based timers inside the draw loop.
-* **History log drawers**: Created rolling caches and scroll panel layouts.
-* **Input actions**: Added SELECT/CIRCLE key mappings inside the frame loop.
+* **HTTP socket parser**: Coded raw request routers.
+* **HTML template asset**: Compiled index layout directly inside `index_html.h`.
+* **State synchronization**: Hooked variables thread-safely inside the main loop.
+* **TUI removal**: Deleted old obsolete console layouts.
 
 ---
 
 # Verification Summary
 
-* **Build check**: WSL clean builds generate `EBOOT.PBP` cleanly.
-* **Popups test**: At 12 seconds, the mock loop triggers a Slack notification modal card overlay with a 5-second countdown.
-* **Input routing**:
-  * Pressing `SELECT` (typically Spacebar) toggles the drawer.
-  * Pressing `CIRCLE` (typically X on keyboard layouts) closes active modals and clears history slots.
+* **Build check**: WSL builds compilation cleanly under CMake.
+* **Server operation**: Companion runs and logs `Open: http://localhost:8080`.
+* **API interactions**: Web page slider adjustments update `config.ini` immediately, and clicking buttons sends control packets back to the client.
 
 ---
 
 # Recommended Next Milestone
 
-**Milestone 12 — Desktop Companion GUI App**
+**Milestone 13 — Packaging and Release**
 
-Focus on building a graphical companion app on the host using standard platforms (like Qt, wxWidgets, or a modern lightweight web interface) to replace CLI commands.
+Focus on preparing the build files for distribution:
+1. Build script to package `EBOOT.PBP` and the Desktop companion binaries.
+2. Installer scripts for WSL/Windows (GWSL bindings and startup commands).
+3. Final user guides and diagnostic manuals.
