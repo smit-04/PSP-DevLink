@@ -14,15 +14,15 @@ PSP DevLink
 
 # Current Milestone
 
-Milestone 6 — Message Processing and Routing
+Milestone 7 — Desktop System Services Integration
 
-Status: COMPLETED (VERIFIED IN EMULATOR FALLBACK)
+Status: COMPLETED (VERIFIED)
 
 ---
 
 # Objective
 
-Implement structured message payload formats, platform-independent serialization, and a client-side routing dispatcher that parses message types, deserializes fields, and updates local state.
+Replace simulated telemetry streaming on the Desktop Companion with real host performance metrics (CPU, RAM, Temp) and Git status metadata (branch name, modifications, untracked counts) gathered via operating system files and subprocess executions.
 
 ---
 
@@ -30,23 +30,20 @@ Implement structured message payload formats, platform-independent serialization
 
 Completed during this milestone:
 
-* Add `PSPDL_MESSAGE_SYSTEM_STATS` and `PSPDL_MESSAGE_GIT_STATUS` message IDs
-* Define payload structs and serialization APIs in `payload.h`
-* Implement Little-Endian explicit serialization/deserialization for stats/git (`payload.c`)
-* Configure `CMakeLists.txt` to include `src/payload.c`
-* Implement simulated telemetry broadcasts in Desktop Companion (`main.cpp`)
-* Compile and link shared payload object in PSP Client (`Makefile`)
-* Implement state stores and dispatcher on PSP client (`message_router.c`)
-* Integrate dispatcher and payload readers inside PSP main loop (`main.c`)
-* Upgrade mock simulation in `transport_usb.c` to inject system stats and git status payloads
+* Declare `SystemMetrics` struct and `SystemService` resource monitor (`system_service.h`)
+* Implement CPU usage calculation, RAM parsing, and temperature reading (`system_service.cpp`)
+* Declare `GitMetrics` struct and `GitService` workspace analyzer (`git_service.h`)
+* Implement subprocess `popen` execution of `git status` and `git rev-parse` (`git_service.cpp`)
+* Add service files to Desktop compile lists (`CMakeLists.txt`)
+* Integrate services into companion state machine loops (`main.cpp`)
 
-Current implementation has fully implemented message payload serialization and client routing. The client parses headers, extracts variable-sized payloads, and updates local telemetry state caches dynamically.
+Current implementation reads real host diagnostics dynamically and package-streams them to the protocol transport layer.
 
 Not yet implemented:
 
-* Desktop system services (reading real CPU/Git metrics via system APIs)
 * PSP graphics rendering engine (visual dashboard panel)
 * notifications collection and display
+* session management settings page (companion UI)
 * message processing
 * session management
 * runtime communication
@@ -110,10 +107,11 @@ Repository Status
 * Milestone 4 USB Transport Implementation completed
 * Milestone 5 Handshake and Packet Serialization completed
 * Milestone 6 Message Processing and Routing completed
-* Shared static library compiles packet and payload serialization
-* Desktop streams simulated system and git telemetry
-* PSP client routes payloads to state managers
-* Visual mock telemetry verification loop verified in PPSSPP
+* Milestone 7 Desktop System Services Integration completed
+* CPU delta parsing and RAM memory calculations implemented
+* Subprocess execution queries branch name and file status counts
+* Telemetry streamed dynamically from OS services to communication loops
+* Verified compile and runtime executions under WSL
 * Pending push to remote repository
 
 ---

@@ -16,6 +16,8 @@ add_subdirectory(
 add_executable(PSPDevLinkDesktop
     src/main.cpp
     src/transport_usb.cpp
+    src/system_service.cpp
+    src/git_service.cpp
 )
 
 find_package(PkgConfig REQUIRED)
