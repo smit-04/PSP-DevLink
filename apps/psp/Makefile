@@ -5,7 +5,8 @@ OBJS = \
     src/transport_usb.o \
     ../../shared/protocol/src/packet.o \
     ../../shared/protocol/src/payload.o \
-    src/message_router.o
+    src/message_router.o \
+    src/ui.o
 
 BUILD_PRX = 0
 

@@ -1,54 +1,62 @@
 # HANDOFF.md
 
-Milestone: Milestone 7 — Desktop System Services Integration
+Milestone: Milestone 8 — PSP Graphics Engine and UI Dashboard
 
-Status: Completed (Desktop CPU/RAM/Temp Metrics and Git Subprocess Commands Verified under WSL)
+Status: Completed (Terminal UI Dashboard, Progress Bars, and State Rendering Verified in Emulator)
 
 ---
 
 # Summary
 
-Milestone 7 has been fully completed. We replaced simulated packet values with real operating system telemetry:
+Milestone 8 has been fully completed. We built a beautiful terminal-styled visual GUI dashboard on the PSP client to display host status metrics and repository data in real-time.
 
-1. **System Performance Service**: Programmed `SystemService` to read tick stats from `/proc/stat` to calculate CPU usage changes. Memory properties are parsed directly from `/proc/meminfo` (mapping total vs available memory sizes). CPU temp reads from thermal zone files, falling back to dynamic simulated loops in virtual environments.
-2. **Git Repository Service**: Programmed `GitService` to execute subprocess lookups via standard `popen()`. It detects Git worktrees, extracts branch labels, and tracks count deltas for modified and untracked file statuses.
-3. **Loop integration**: Swapped the fake metrics inside the Desktop Companion (`main.cpp`) to stream actual live data. Both builds compile cleanly under WSL without warnings.
+1. **Modular UI Renderer**: Added a dedicated `ui` component (`ui.h` and `ui.c`) implementing absolute-coordinate grid drawings. Overwriting characters in-place prevents screen flicker, allowing 100fps frame updates.
+2. **Dashboard Layout**:
+   * *Status Indicator*: Highlights connection status color-coded in green (`CONNECTED`) or yellow (`SEARCHING`).
+   * *Telemetry Panel (Left)*: Custom progress bars fill up based on host CPU/RAM loads; prints CPU temp and memory capacity limits.
+   * *Git Status Panel (Right)*: Displays current git branches in cyan; flags modified (red) and untracked (yellow) file counts.
+3. **Loop integration**: Refactored the client's packet processing to quiet debug scrolling logs. Integrated dashboard refreshes into the main loop (`main.c`).
 
 ---
 
 # Deliverables Completed
 
-* **System Monitor Service**: Built `system_service.h` and `system_service.cpp`.
-* **Git Status Service**: Built `git_service.h` and `git_service.cpp`.
-* **Build Targets Integration**: Added services to CMake lists and linked dependencies.
-* **Companion stream mapping**: Integrated live metrics inside `main.cpp` stream loops.
+* **UI Drawing Engine**: Developed `ui.h` and `ui.c`.
+* **Link integration**: Configured `Makefile` and main loop integrations.
+* **Telemetry caching**: Refactored `message_router.c` to cache payload variables quietly.
+* **Emulator validation**: Visual simulation loop verified in PPSSPP.
 
 ---
 
 # Verification Summary
 
-* **WSL Executable Verification**: Compiled `PSPDevLinkDesktop` cleanly and executed it. It scans for connection interfaces and accesses Linux/WSL performance statistics and workspace Git commits successfully.
-* **PSP Client Verification**: Rebuilt `EBOOT.PBP` cleanly, validating header layout changes compile and link seamlessly.
+* **PSP EBOOT Compilation**: Rebuilds cleanly with zero warnings or errors.
+* **PPSSPP Emulator Validation**: Loaded the EBOOT on PPSSPP; observed:
+  1. Header and footer boxes layout cleanly aligned.
+  2. status indicator starts as `[ SEARCHING FOR HOST... ]` (Yellow) with default stats cards (`--`).
+  3. transitions to `[ CONNECTED ]` (Green) after mock host injection.
+  4. progress bars dynamically fill and stats display live metrics.
+  5. git branch name (`dev-branch`) shows in cyan, modified files count shows in red, and untracked shows in yellow.
+  6. Disconnects cleanly back to Searching status when heartbeat timeout triggers.
 
 ---
 
 # Remaining Work
 
-* PSP graphics rendering engine (converting debug printouts to a graphical dashboard interface using the PSP GU).
-* Desktop notifications collection service.
-* Desktop GUI settings page.
+* Desktop Companion GUI configurations settings page.
+* Desktop Notifications Service (extracting notifications from the host system tray / OS DBus / WinRT APIs).
+* PSP Notification overlay card (rendering popups for host notifications).
 
 ---
 
 # Recommended Next Milestone
 
-**Milestone 8 — PSP Graphics Engine and UI Dashboard**
+**Milestone 9 — Desktop Notification Collection Service**
 
-Focus on the visual dashboard panel on the PSP client:
-1. Initialize the PSP Graphical Utility (`GU`) to set up double-buffered rendering.
-2. Create standard UI layout panels (e.g. status bar, CPU/RAM meter cards, Git status repository cards).
-3. Draw background grids, progress bars, and clean text strings displaying the current metrics from `g_current_stats` and `g_current_git`.
-4. Replace raw console text scrolling with a premium real-time visual monitor interface.
+Focus on implementing the notification collection layer on the Desktop Companion:
+1. Research or implement OS-specific hooks to capture incoming system notifications (e.g. D-Bus listener on Linux/WSL or WinRT APIs on Windows).
+2. Define a new protocol message `PSPDL_MESSAGE_NOTIFICATION` and a corresponding string-based payload schema.
+3. Package host notifications and stream them to the PSP client.
 
 ---
 

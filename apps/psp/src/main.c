@@ -39,6 +39,7 @@ int setup_callbacks(void)
 #include <protocol/packet.h>
 #include <protocol/version.h>
 #include "message_router.h"
+#include "ui.h"
 
 typedef enum
 {
@@ -50,37 +51,22 @@ int main(void)
 {
     setup_callbacks();
 
-    pspDebugScreenInit();
+    ui_init();
 
     sceCtrlSetSamplingCycle(0);
     sceCtrlSetSamplingMode(PSP_CTRL_MODE_DIGITAL);
 
-    pspDebugScreenPrintf("=================================\n");
-    pspDebugScreenPrintf("        PSP DevLink\n");
-    pspDebugScreenPrintf("=================================\n\n");
-
-    pspDebugScreenPrintf("Milestone 6 Message Routing\n\n");
-
-    pspDebugScreenPrintf("[OK] Display Initialized\n");
-    pspDebugScreenPrintf("[OK] Controller Initialized\n");
-    pspDebugScreenPrintf("[OK] PSP SDK Working\n");
-
     // Initialize transport backend
     PSPDL_TransportResult trans_res = transport_initialize();
-    if (trans_res == PSPDL_TRANSPORT_OK)
+    if (trans_res != PSPDL_TRANSPORT_OK)
     {
-        pspDebugScreenPrintf("[OK] USB Transport Init Success\n");
-    }
-    else
-    {
+        // Fail-safe init if UI framework isn't initialized
+        pspDebugScreenInit();
         pspDebugScreenPrintf("[FAIL] USB Transport Init Error: %d\n", trans_res);
         sceKernelDelayThread(5000000);
         sceKernelExitGame();
         return 0;
     }
-
-    pspDebugScreenPrintf("[INFO] Waiting for Host Connection...\n\n");
-    pspDebugScreenPrintf("Press START to exit...\n\n");
 
     ConnectionState state = STATE_DISCONNECTED;
     uint32_t ticks_since_last_packet = 0;
@@ -168,13 +154,7 @@ int main(void)
                             if (transport_send(tx_buf, sizeof(tx_buf)) == PSPDL_TRANSPORT_OK)
                             {
                                 state = STATE_CONNECTED;
-                                pspDebugScreenPrintf("[OK] Handshake Complete! Connected to Host.\n");
                             }
-                        }
-                        else
-                        {
-                            pspDebugScreenPrintf("[WARN] Protocol Version Mismatch: %d.%d\n", 
-                                                 (rx_hdr.protocol_version >> 8), (rx_hdr.protocol_version & 0xFF));
                         }
                     }
                     else if (state == STATE_CONNECTED)
@@ -190,7 +170,6 @@ int main(void)
             if (state == STATE_CONNECTED)
             {
                 state = STATE_DISCONNECTED;
-                pspDebugScreenPrintf("[WARN] Transport Error. Disconnected from Host.\n");
             }
         }
 
@@ -201,9 +180,12 @@ int main(void)
             if (ticks_since_last_packet > 500) // 5 seconds (500 * 10ms)
             {
                 state = STATE_DISCONNECTED;
-                pspDebugScreenPrintf("[WARN] Connection Timeout. Disconnected.\n");
             }
         }
+
+        // Render dashboard GUI
+        UIConnectionState ui_state = (state == STATE_CONNECTED) ? UI_CONN_CONNECTED : UI_CONN_DISCONNECTED;
+        ui_render(ui_state, &g_current_stats, &g_current_git);
 
         // Delay 10ms per iteration (10,000 microseconds)
         sceKernelDelayThread(10000);
