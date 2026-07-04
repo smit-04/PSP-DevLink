@@ -1,4 +1,23 @@
-#include "protocol/transport.h"
+#include <protocol/transport.h>
+
+#include <pspkernel.h>
+#include <pspusb.h>
+#include <pspusbbus.h>
+
+/*
+ * PSP USB Transport Backend
+ *
+ * Milestone 4 implementation order:
+ *
+ * [x] Transport interface
+ * [ ] USB descriptors
+ * [ ] USB driver definition
+ * [ ] Driver callbacks
+ * [ ] transport_initialize()
+ * [ ] transport_shutdown()
+ * [ ] transport_send()
+ * [ ] transport_receive()
+ */
 
 PSPDL_TransportResult transport_initialize(void)
 {
