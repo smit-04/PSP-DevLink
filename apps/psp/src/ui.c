@@ -56,6 +56,16 @@ void ui_add_notification(const PSPDL_NotificationPayload *notif)
 void ui_toggle_history(void)
 {
     s_showing_history = !s_showing_history;
+    
+    // Clear panel area once to prevent menu residues on transition
+    for (int r = 6; r <= 16; r++)
+    {
+        pspDebugScreenSetXY(1, r);
+        for (int c = 1; c <= 64; c++)
+        {
+            pspDebugScreenPrintf(" ");
+        }
+    }
 }
 
 void ui_close_active_popup(void)
@@ -68,6 +78,16 @@ void ui_clear_history(void)
 {
     memset(s_notif_history, 0, sizeof(s_notif_history));
     s_notif_history_count = 0;
+    
+    // Clear panel area once to remove logs cleanly
+    for (int r = 6; r <= 16; r++)
+    {
+        pspDebugScreenSetXY(1, r);
+        for (int c = 1; c <= 64; c++)
+        {
+            pspDebugScreenPrintf(" ");
+        }
+    }
 }
 
 void ui_handle_circle_press(void)
