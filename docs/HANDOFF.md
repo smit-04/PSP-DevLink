@@ -1,45 +1,42 @@
 # HANDOFF.md
 
-Milestone: Milestone 10 — Desktop Companion Settings Page & Session Manager
+Milestone: Milestone 11 — PSP Notification Card Overlay Popups
 
-Status: Completed (TUI Configurations panel, load/save storage, control protocol additions, and emulator exit/reset buttons verified in PPSSPP)
+Status: Completed (Overlay modal cards, 5-second automatic close timers, and Select-toggled scroll drawers verified in PPSSPP)
 
 ---
 
 # Summary
 
-Milestone 10 has been successfully completed. We implemented a configurations persistence layer, an interactive non-blocking Terminal UI panel for the companion, and control command message handlers on the client target.
+Milestone 11 has been successfully completed. We implemented visual alert popups, overlay display timers, and a rolling log history drawer on the PSP Client target.
 
-1. **Configurations Persistence**: Developed `ConfigService` which reads/writes intervals (`telemetry_interval_ms`, `git_interval_ms`, `notif_interval_ms`) and feature enable flags to `config.ini` in the execution directory.
-2. **Settings Dashboard (TUI)**: Developed `TuiService` setting raw non-echoing console modes via standard `termios`. Renders configuration menus aligned with cursor position shifts (`\033[H`), supporting on-the-fly interval toggling (`1-5` key cycles) and safe termination.
-3. **Session Control Protocol**: Defined `PSPDL_MESSAGE_CONTROL = 6` carrying 1-byte command IDs (`1` = Exit to XMB, `2` = Reboot Console). Added decode handlers and mapped controller buttons (`SELECT + SQUARE`/`TRIANGLE`) to verify actions inside emulators.
+1. **Popup Overlays**: Renders a visually centered modal box (Columns 10-57, Rows 7-15) on incoming notifications. Shows app headers, title wraps, body wraps, and countdown timers.
+2. **Auto-Dismiss Lifecycle**: Decrements frame-by-frame (500 ticks at 10ms frame rates) to hide the popup after 5 seconds, or closes instantly on `CIRCLE` button presses.
+3. **Notification Drawer (History)**: Caches the last 5 incoming payloads in a queue. Pressing `SELECT` toggles the drawer, swapping standard metrics cards with log lines. Pressing `CIRCLE` clears the log.
 
 ---
 
 # Deliverables Completed
 
-* **Control payload C-interfaces**: Serialize/deserialize control functions.
-* **TUI settings engine**: Created `tui_service` and `config_service` targets on Desktop.
-* **Client loop routines**: Integrated power resets and thread terminations in `main.c`.
-* **Verification shortcuts**: Configured select-button simulators to verify actions.
+* **UI Overlay modules**: Coded overlay rendering interfaces.
+* **Auto-close timers**: Linked frame-based timers inside the draw loop.
+* **History log drawers**: Created rolling caches and scroll panel layouts.
+* **Input actions**: Added SELECT/CIRCLE key mappings inside the frame loop.
 
 ---
 
 # Verification Summary
 
-* **Build check**: WSL targets rebuild cleanly.
-* **TUI execution**: Cycles configuration settings interactively and stores changes to `config.ini`.
-* **Client actions (PPSSPP)**:
-  * Pressing `SELECT + SQUARE` (or custom START key map combos in your layout) breaks the game loop and returns the PSP to the PPSSPP selection menu.
-  * Pressing `SELECT + TRIANGLE` reboots the game, reloading the DevLink dashboard automatically.
+* **Build check**: WSL clean builds generate `EBOOT.PBP` cleanly.
+* **Popups test**: At 12 seconds, the mock loop triggers a Slack notification modal card overlay with a 5-second countdown.
+* **Input routing**:
+  * Pressing `SELECT` (typically Spacebar) toggles the drawer.
+  * Pressing `CIRCLE` (typically X on keyboard layouts) closes active modals and clears history slots.
 
 ---
 
 # Recommended Next Milestone
 
-**Milestone 11 — PSP Notification Card Overlay Popups**
+**Milestone 12 — Desktop Companion GUI App**
 
-Focus on implementing graphic popups for notifications:
-1. Research how to render card layouts (overlapping other visual grids) when a new notification arrives.
-2. Build an overlay timer that renders the popup cards on the dashboard, sliding them off or hiding them after 5 seconds.
-3. Design a notification drawer menu accessible via custom controller button toggles.
+Focus on building a graphical companion app on the host using standard platforms (like Qt, wxWidgets, or a modern lightweight web interface) to replace CLI commands.
