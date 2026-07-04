@@ -14,7 +14,7 @@ PSP DevLink
 
 # Current Milestone
 
-Milestone 9 — Desktop Notification Collection Service
+Milestone 10 — Desktop Companion Settings Page & Session Manager
 
 Status: COMPLETED (VERIFIED IN EMULATOR)
 
@@ -22,7 +22,7 @@ Status: COMPLETED (VERIFIED IN EMULATOR)
 
 # Objective
 
-Capture host desktop notifications (using D-Bus on Linux/WSL) and stream them dynamically to the PSP Client to render a clean, color-coded notification ticker at the bottom of the dashboard screen.
+Build an interactive, non-blocking Terminal User Interface (TUI) settings dashboard and configuration storage for the Desktop Companion, and support remote console actions (Exit to XMB, Reboot Console) from the companion to the PSP Client.
 
 ---
 
@@ -30,18 +30,18 @@ Capture host desktop notifications (using D-Bus on Linux/WSL) and stream them dy
 
 Completed during this milestone:
 
-* Register `PSPDL_MESSAGE_NOTIFICATION = 5` and define `PSPDL_NotificationPayload` structure (128 bytes)
-* Implement D-Bus monitoring `NotificationService` daemon with thread-safe queue and simulated fallback support
-* Integrate notification packet polling and network serialization into companion main loop
-* Add router decoding and global cache management for notifications in the client
-* Implement row-aligned ticker rendering with auto-truncation and residue space-clearing in the client UI
+* Register `PSPDL_MESSAGE_CONTROL = 6` and define `PSPDL_ControlPayload` structure (1 byte)
+* Implement `ConfigService` reading/writing configurations to `config.ini` files
+* Implement `TuiService` setting raw termios console parameters and rendering cursor-aligned options pages
+* Integrate configuration variables into the main companion telemetry intervals
+* Process remote exit and reboot triggers client-side, incorporating `<psppower.h>` cold resets
+* Map controller mock button bindings (`SELECT + SQUARE`/`TRIANGLE`) to verify handlers inside emulators
 
-Current implementation displays a beautiful terminal-based telemetry layout with real-time stats updates, progress indicators, and host notification ticker.
+Current implementation displays an interactive TUI configurations console on the host, and supports remote client power-off and system reboot signals.
 
 Not yet implemented:
 
-* Desktop GUI configurations settings page
-* PSP notifications overlay popup card
+* PSP notification card overlay popups
 * message processing
 * session management
 
@@ -107,9 +107,11 @@ Repository Status
 * Milestone 7 Desktop System Services Integration completed
 * Milestone 8 PSP Graphics Engine and UI Dashboard completed
 * Milestone 9 Desktop Notification Collection Service completed
-* D-Bus notification parsing library implemented on Desktop
-* Notification ticker drawing and residue clean-up logic coded in client GUI
-* Real and mock notification pipeline validated under PPSSPP emulation
+* Milestone 10 Desktop Companion Settings Page & Session Manager completed
+* Config file reading/writing parsing implemented
+* termios non-blocking terminal console UI implemented
+* Remote power-off and reboot command routines integrated on PSP client
+* Control shortcuts mapped to buttons in emulator mock loop
 * Pending push to remote repository
 
 ---
@@ -153,8 +155,8 @@ PSP-DevLink/
 ├── docs/
 │   └── architecture/
 ├── scripts/
-├── .gitignore
-└── README.md
+│   ├── .gitignore
+│   └── README.md
 ```
 
 ---
@@ -172,10 +174,11 @@ Implemented:
 * Flicker-free PSP graphical UI dashboard (vsync synchronized)
 * Desktop notification collection service (D-Bus listener + simulation)
 * Client-side notification ticker display
+* Companion settings TUI and INI configuration parsing
+* Remote console reboot and shutdown routines
 
 Not Yet Implemented:
 
-* Desktop GUI configurations settings page
 * PSP notification card overlay popups
 
 ---
@@ -196,11 +199,13 @@ Verified:
 
 Real notifications require an active session D-Bus in the WSL environment. In headless WSL instances, the companion falls back automatically to simulated notifications.
 
+Real USB transport communication between Windows/WSL and PPSSPP is not emulated; local control simulation keys are mapped on the client.
+
 ---
 
 # Next Task
 
-Milestone 10 — Desktop Companion Settings Page & Session Manager.
+Milestone 11 — PSP Notification Card Overlay Popups.
 
 ---
 

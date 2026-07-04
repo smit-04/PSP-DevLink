@@ -1,46 +1,45 @@
 # HANDOFF.md
 
-Milestone: Milestone 9 — Desktop Notification Collection Service
+Milestone: Milestone 10 — Desktop Companion Settings Page & Session Manager
 
-Status: Completed (D-Bus listener, simulation fallback, packet serialization, and row-truncated screen ticker verified in PPSSPP)
+Status: Completed (TUI Configurations panel, load/save storage, control protocol additions, and emulator exit/reset buttons verified in PPSSPP)
 
 ---
 
 # Summary
 
-Milestone 9 has been successfully completed. We implemented a system notification pipeline from the host PC to the PSP dashboard ticker.
+Milestone 10 has been successfully completed. We implemented a configurations persistence layer, an interactive non-blocking Terminal UI panel for the companion, and control command message handlers on the client target.
 
-1. **Host Notification Daemon**: Built a C++ thread-based `NotificationService` that executes a `dbus-monitor` subprocess via a pipe, reading incoming system notifications. It includes a robust fallback timer to generate periodic mock events (e.g. Slack, GitHub) if WSL has no running session D-Bus.
-2. **Protocol & Stream Layer**: Registered message ID 5 (`PSPDL_MESSAGE_NOTIFICATION`) and the 128-byte `PSPDL_NotificationPayload` packet. The companion polls for new notifications and transmits them over the network.
-3. **Flicker & Wrapping Protection**: Modified `ui.c` to truncate messages at 66 columns (appending `...`) so notifications fit on a single row (row 22). Added character count tracking to clear lines to column 67 and blank out row 23 to eliminate visual residue.
+1. **Configurations Persistence**: Developed `ConfigService` which reads/writes intervals (`telemetry_interval_ms`, `git_interval_ms`, `notif_interval_ms`) and feature enable flags to `config.ini` in the execution directory.
+2. **Settings Dashboard (TUI)**: Developed `TuiService` setting raw non-echoing console modes via standard `termios`. Renders configuration menus aligned with cursor position shifts (`\033[H`), supporting on-the-fly interval toggling (`1-5` key cycles) and safe termination.
+3. **Session Control Protocol**: Defined `PSPDL_MESSAGE_CONTROL = 6` carrying 1-byte command IDs (`1` = Exit to XMB, `2` = Reboot Console). Added decode handlers and mapped controller buttons (`SELECT + SQUARE`/`TRIANGLE`) to verify actions inside emulators.
 
 ---
 
 # Deliverables Completed
 
-* **Protocol Additions**: Serializer/deserializer functions and structures.
-* **Notification Capture Daemon**: Developed `notification_service.h`/`cpp` on Desktop.
-* **UI Ticker Engine**: Implemented character-wrapping constraints and visual cleanups in `ui.c`.
-* **Mock Simulation Loop**: Updated `transport_usb.c` emulator mock routine to trigger a Slack notification event at 12 seconds.
+* **Control payload C-interfaces**: Serialize/deserialize control functions.
+* **TUI settings engine**: Created `tui_service` and `config_service` targets on Desktop.
+* **Client loop routines**: Integrated power resets and thread terminations in `main.c`.
+* **Verification shortcuts**: Configured select-button simulators to verify actions.
 
 ---
 
 # Verification Summary
 
-* **Compilation**: Both applications build with zero warnings or errors.
-* **PPSSPP Emulator Validation**:
-  1. Starts in disconnected state: ticker says `[NOTIF] No notifications received`.
-  2. Handshakes and updates stats: CPU/RAM/Temp and Git branch fill up.
-  3. Notification arrival: At 12 seconds, Slack notification loads, colored yellow (`[NOTIF]`), cyan (`Slack:`), and white text. It truncates cleanly at the edge with `...` and never overflows.
-  4. Disconnection: Watchdog triggers, screen resets to default, and row 22 & row 23 are completely cleared with no visual residue.
+* **Build check**: WSL targets rebuild cleanly.
+* **TUI execution**: Cycles configuration settings interactively and stores changes to `config.ini`.
+* **Client actions (PPSSPP)**:
+  * Pressing `SELECT + SQUARE` (or custom START key map combos in your layout) breaks the game loop and returns the PSP to the PPSSPP selection menu.
+  * Pressing `SELECT + TRIANGLE` reboots the game, reloading the DevLink dashboard automatically.
 
 ---
 
 # Recommended Next Milestone
 
-**Milestone 10 — Desktop Companion Settings Page & Session Manager**
+**Milestone 11 — PSP Notification Card Overlay Popups**
 
-Focus on implementing the session manager and configuration interface for the companion:
-1. Develop a simple companion GUI dashboard (using Dear ImGui, Qt, or standard C++ terminal choices) to display connected device status.
-2. Build configurations storage to persist configurations (e.g. custom telemetry refresh rates, toggle notification types).
-3. Implement remote reboot/exit commands from the host companion to the PSP client.
+Focus on implementing graphic popups for notifications:
+1. Research how to render card layouts (overlapping other visual grids) when a new notification arrives.
+2. Build an overlay timer that renders the popup cards on the dashboard, sliding them off or hiding them after 5 seconds.
+3. Design a notification drawer menu accessible via custom controller button toggles.
