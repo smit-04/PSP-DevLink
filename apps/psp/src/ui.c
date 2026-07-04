@@ -228,21 +228,67 @@ void ui_render(
 
     /* ===== NOTIFICATION TICKER ===== */
     pspDebugScreenSetXY(1, 22);
+    int cols_printed = 0;
+    
     if (conn_state == UI_CONN_CONNECTED && notif != NULL && notif->app_name[0] != '\0')
     {
-        pspDebugScreenSetTextColor(0xFF00FFFF); // Yellow "[NOTIF]" tag
+        // Print "[NOTIF] " (8 chars)
+        pspDebugScreenSetTextColor(0xFF00FFFF); // Yellow
         pspDebugScreenPrintf("[NOTIF] ");
-        pspDebugScreenSetTextColor(0xFFFFFF00); // Cyan app name
-        pspDebugScreenPrintf("%s: ", notif->app_name);
-        pspDebugScreenSetTextColor(0xFFFFFFFF); // White body/summary
+        cols_printed += 8;
+
+        // Print app name (app_name + ": " chars)
+        pspDebugScreenSetTextColor(0xFFFFFF00); // Cyan
+        char app_str[32];
+        snprintf(app_str, sizeof(app_str), "%s: ", notif->app_name);
+        pspDebugScreenPrintf("%s", app_str);
+        cols_printed += strlen(app_str);
+
+        // Print combined summary and body, truncated to fit on a single line
+        pspDebugScreenSetTextColor(0xFFFFFFFF); // White
+        char msg_str[128];
+        snprintf(msg_str, sizeof(msg_str), "%s - %s", notif->summary, notif->body);
         
-        char combined[128];
-        snprintf(combined, sizeof(combined), "%s - %s", notif->summary, notif->body);
-        pspDebugScreenPrintf("%-45s", combined);
+        // We have (66 - cols_printed) columns left on this row
+        int max_msg_len = 66 - cols_printed;
+        if (max_msg_len > 0)
+        {
+            char msg_truncated[128];
+            strncpy(msg_truncated, msg_str, max_msg_len);
+            msg_truncated[max_msg_len] = '\0';
+            
+            // If it was truncated, add a premium "..." trailing ellipsis
+            int msg_len = strlen(msg_truncated);
+            if (strlen(msg_str) > (size_t)max_msg_len && msg_len >= 3)
+            {
+                msg_truncated[msg_len - 1] = '.';
+                msg_truncated[msg_len - 2] = '.';
+                msg_truncated[msg_len - 3] = '.';
+            }
+            
+            pspDebugScreenPrintf("%s", msg_truncated);
+            cols_printed += strlen(msg_truncated);
+        }
     }
     else
     {
         pspDebugScreenSetTextColor(0xFF555555); // Grey placeholder
-        pspDebugScreenPrintf("[NOTIF] No notifications received              ");
+        pspDebugScreenPrintf("[NOTIF] No notifications received");
+        cols_printed += 33;
+    }
+
+    // Overwrite the rest of row 22 with spaces up to column 67
+    pspDebugScreenSetTextColor(0xFFFFFFFF);
+    int remaining = 67 - cols_printed;
+    for (int i = 0; i < remaining; i++)
+    {
+        pspDebugScreenPrintf(" ");
+    }
+
+    // Clear row 23 entirely to remove any old multi-line wrapping leftovers
+    pspDebugScreenSetXY(1, 23);
+    for (int i = 0; i < 66; i++)
+    {
+        pspDebugScreenPrintf(" ");
     }
 }
