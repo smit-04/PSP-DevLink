@@ -2,8 +2,8 @@
 #include <pspdebug.h>
 #include <pspctrl.h>
 
-PSP_MODULE_INFO("PSPDevLink", 0, 1, 0);
-PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER);
+PSP_MODULE_INFO("PSPDevLink", 0x1000, 1, 0);
+PSP_MAIN_THREAD_ATTR(0);
 
 int exit_callback(int arg1, int arg2, void *common)
 {
@@ -26,7 +26,7 @@ int setup_callbacks(void)
         callback_thread,
         0x11,
         0xFA0,
-        THREAD_ATTR_USER,
+        0,
         0);
 
     if (thid >= 0)
@@ -34,6 +34,8 @@ int setup_callbacks(void)
 
     return thid;
 }
+
+#include <protocol/transport.h>
 
 int main(void)
 {
@@ -48,11 +50,22 @@ int main(void)
     pspDebugScreenPrintf("        PSP DevLink\n");
     pspDebugScreenPrintf("=================================\n\n");
 
-    pspDebugScreenPrintf("Milestone 0 Verification\n\n");
+    pspDebugScreenPrintf("Milestone 4 USB Transport Setup\n\n");
 
     pspDebugScreenPrintf("[OK] Display Initialized\n");
     pspDebugScreenPrintf("[OK] Controller Initialized\n");
-    pspDebugScreenPrintf("[OK] PSP SDK Working\n\n");
+    pspDebugScreenPrintf("[OK] PSP SDK Working\n");
+
+    // Initialize transport backend
+    PSPDL_TransportResult trans_res = transport_initialize();
+    if (trans_res == PSPDL_TRANSPORT_OK)
+    {
+        pspDebugScreenPrintf("[OK] USB Transport Init Success\n\n");
+    }
+    else
+    {
+        pspDebugScreenPrintf("[FAIL] USB Transport Init Error: %d\n\n", trans_res);
+    }
 
     pspDebugScreenPrintf("Press START to exit...\n");
 
@@ -64,8 +77,12 @@ int main(void)
 
         if (pad.Buttons & PSP_CTRL_START)
             break;
+        
+        // Yield CPU slightly to keep emulator/hardware happy
+        sceKernelDelayThread(10000);
     }
 
+    transport_shutdown();
     sceKernelExitGame();
     return 0;
 }

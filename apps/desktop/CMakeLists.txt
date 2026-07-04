@@ -18,6 +18,9 @@ add_executable(PSPDevLinkDesktop
     src/transport_usb.cpp
 )
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBUSB REQUIRED IMPORTED_TARGET libusb-1.0)
+
 target_include_directories(PSPDevLinkDesktop
     PRIVATE
         include
@@ -26,4 +29,5 @@ target_include_directories(PSPDevLinkDesktop
 target_link_libraries(PSPDevLinkDesktop
     PRIVATE
         pspdevlink_protocol
+        PkgConfig::LIBUSB
 )

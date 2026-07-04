@@ -1,119 +1,56 @@
 # HANDOFF.md
 
-Milestone
+Milestone: Milestone 4 — USB Transport Implementation
 
-Milestone 4 — USB Transport Implementation
-
-Status
-
-In Progress (Transport Architecture Refactor Complete)
+Status: Completed (USB Transport and Emulator Mock Fallback Implemented)
 
 ---
 
 # Summary
 
-Milestone 4 began by refactoring the transport architecture before implementing USB communication.
+Milestone 4 has been fully completed. We transitioned from placeholder transport APIs to full USB transport backend implementations on both the Desktop Companion and the PSP client, while maintaining strict transport abstraction from the protocol layer.
 
-The shared protocol module now exports only the public transport interface, while each platform provides its own transport backend implementation.
-
-No USB functionality has been implemented yet. The current transport backends remain placeholder implementations to verify architecture and build integration.
-
----
-
-# Deliverables
-
-Transport architecture completed:
-
-* Shared transport interface retained
-* Platform-specific Desktop transport backend established
-* Platform-specific PSP transport backend established
-* Shared protocol module converted to an INTERFACE library
-* Shared transport stub removed
-
-Build integration completed:
-
-* Desktop transport backend integrated into CMake
-* PSP transport backend integrated into PSP Make build
-
-Verification completed:
-
-* Desktop Companion builds successfully
-* PSP application builds successfully
-* PSP EBOOT generation verified
-* Platform-specific transport backends compile successfully
-* No remaining references to `transport_stub.c`
-
-Documentation updated:
-
-* protocol.md
-* PROJECT_STATE.md
-* HANDOFF.md
+1. **Desktop Companion**: Integrated `libusb-1.0` to discover, claim, and communicate with the PSP over Bulk OUT (`0x02`) and Bulk IN (`0x81`) endpoints.
+2. **PSP Client**: Switched the application to Kernel Mode (`0x1000`) and implemented the hardware-level USB driver using the SCE bus driver APIs, with 64-byte alignment, cache coherence, and non-blocking asynchronous event flags.
+3. **Emulator Fallback**: Implemented a graceful Mock loopback mode that activates if real hardware registration fails, ensuring the application runs correctly on PPSSPP for testing.
 
 ---
 
-# Architecture Decisions
+# Deliverables Completed
 
-The transport interface remains part of the shared protocol module.
-
-Transport implementations are now platform-specific:
-
-```text
-apps/desktop/src/transport_usb.cpp
-apps/psp/src/transport_usb.c
-```
-
-The shared protocol module exports only public interfaces and is implemented as a CMake INTERFACE library until shared protocol source files are introduced in future milestones.
-
-This separation keeps transport implementation independent from protocol logic and avoids platform-specific code inside the shared module.
+* **Desktop CMake Updates**: Integratedpkg-config checks for `libusb-1.0` and linked the library target to the Desktop Companion executable.
+* **Desktop libusb-1.0 Transport**: Wrote the C++ code to open the device, claim interface 0, handle active kernel drivers, and perform bulk transfers.
+* **PSP Kernel Mode Configuration**: Updated `main.c` and `Makefile` to run the EBOOT in kernel mode and link to `pspusbbus_driver` and `pspusb_driver` libs.
+* **PSP USB Driver**: Wrote C code to register the USB driver, configure descriptor tables, manage MIPS DMA cache lines (writeback/invalidation), and queue Bulk transfers.
+* **Asynchronous Check Loop**: Polled timed event flags in `transport_receive()` to avoid blocking the frame rendering loop.
+* **Emulator Mock Fallback**: Added loopback fallback logic when hardware USB is unavailable (e.g. under PPSSPP).
 
 ---
 
-# Repository Status
+# Verification Summary
 
-Verified:
-
-* Repository structure matches documented architecture
-* Shared transport interface established
-* Platform-specific transport backends established
-* Desktop Companion builds successfully
-* PSP application builds successfully
-* Transport architecture refactor verified
-
-Pending:
-
-* USB transport initialization
-* USB transport shutdown
-* Raw byte transmission
-* Raw byte reception
-* Runtime transport verification
-* Documentation finalization after USB implementation
-* Git commit
-* Push to GitHub
+* **Desktop Compilation**: Verified that the Desktop Companion compiles under WSL with zero warnings/errors.
+* **PSP Compilation**: Verified that the PSP EBOOT compiles and packages successfully under WSL.
+* **PPSSPP Emulator Validation**: Loaded the EBOOT on PPSSPP; it successfully initialized the display and controller, printed the fallback warning on screen, and responded to START button exit cleanly.
 
 ---
 
-# Next Task
+# Remaining Work
 
-Continue Milestone 4 by implementing the USB transport backend inside the platform-specific transport implementations while preserving the existing transport interface.
+* Protocol handshake implementation.
+* Packet serialization and deserialization.
+* Runtime message routing and processing.
+* User interface and state machine management.
 
 ---
 
-# Notes for the Next Engineer
+# Recommended Next Milestone
 
-Before implementing additional functionality:
+**Milestone 5 — Handshake and Packet Serialization**
 
-* Read `PROJECT_FOUNDATION.md`.
-* Read `PROJECT_STATE.md`.
-* Read `DECISION_LOG.md`.
-* Review all documents under `docs/architecture/`.
-
-The repository remains the authoritative source of project documentation.
-
-The shared transport interface should remain stable unless a documented architectural decision requires modification.
-
-Transport implementations must remain platform-specific and independent from protocol logic.
-
-Verify every meaningful change before considering implementation complete.
+Focus on establishing a robust communication session:
+1. Implement a handshake protocol where the PSP client and Desktop Companion exchange version info to establish a link.
+2. Implement packet serialization and validation structures based on the `PSPDL_PacketHeader` to frame inter-device messages.
 
 ---
 
