@@ -20,7 +20,7 @@ add_executable(PSPDevLinkDesktop
     src/git_service.cpp
     src/notification_service.cpp
     src/config_service.cpp
-    src/tui_service.cpp
+    src/http_server.cpp
 )
 
 find_package(PkgConfig REQUIRED)
