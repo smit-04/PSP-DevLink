@@ -5,7 +5,10 @@
 
 void ui_init(void)
 {
-    // Initialize debug screen and set standard colors
+    // Initialize debug screen system
+    pspDebugScreenInit();
+
+    // Set standard colors
     pspDebugScreenSetTextColor(0xFFFFFFFF);
     pspDebugScreenSetBackColor(0xFF000000);
     pspDebugScreenClear();
