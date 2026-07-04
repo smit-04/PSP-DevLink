@@ -504,7 +504,6 @@ PSPDL_TransportResult transport_receive(
             {
                 memcpy(g_mock_buffer + g_mock_buffer_size, temp, PSPDL_PACKET_HEADER_SIZE);
                 g_mock_buffer_size += PSPDL_PACKET_HEADER_SIZE;
-                pspDebugScreenPrintf("[MOCK] Injecting HELLO from Host...\n");
             }
         }
 
@@ -532,7 +531,6 @@ PSPDL_TransportResult transport_receive(
             {
                 memcpy(g_mock_buffer + g_mock_buffer_size, temp, sizeof(temp));
                 g_mock_buffer_size += sizeof(temp);
-                pspDebugScreenPrintf("[MOCK] Injecting System Stats...\n");
             }
         }
 
@@ -564,7 +562,6 @@ PSPDL_TransportResult transport_receive(
             {
                 memcpy(g_mock_buffer + g_mock_buffer_size, temp, sizeof(temp));
                 g_mock_buffer_size += sizeof(temp);
-                pspDebugScreenPrintf("[MOCK] Injecting Git Status...\n");
             }
         }
 
@@ -587,7 +584,6 @@ PSPDL_TransportResult transport_receive(
                 {
                     memcpy(g_mock_buffer + g_mock_buffer_size, temp, PSPDL_PACKET_HEADER_SIZE);
                     g_mock_buffer_size += PSPDL_PACKET_HEADER_SIZE;
-                    pspDebugScreenPrintf("[MOCK] Injecting HEARTBEAT...\n");
                 }
             }
         }
