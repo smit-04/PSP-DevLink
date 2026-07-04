@@ -8,11 +8,11 @@ OBJS = \
     src/message_router.o \
     src/ui.o
 
-BUILD_PRX = 1
+BUILD_PRX = 0
 
 PSP_FW_VERSION = 660
 
-LIBS += -lpspusbbus_driver -lpspusb_driver -lpsppower
+LIBS += -lpsppower -lpspkernel
 
 CFLAGS = -O2 -G0 -Wall
 CXXFLAGS = $(CFLAGS)

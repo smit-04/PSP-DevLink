@@ -7,10 +7,76 @@
 #include <pspusb.h>
 #include <pspusbbus.h>
 #include <pspdebug.h>
+#include <pspmodulemgr.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "usb_identity.h"
+
+// Dynamic USB function bindings to prevent load-time dependency errors (8002013C)
+typedef int (*sceUsbbdRegister_t)(struct UsbDriver *driver);
+typedef int (*sceUsbbdUnregister_t)(struct UsbDriver *driver);
+typedef int (*sceUsbbdReqSend_t)(struct UsbdDeviceReq *req);
+typedef int (*sceUsbbdReqRecv_t)(struct UsbdDeviceReq *req);
+typedef int (*sceUsbbdReqCancelAll_t)(struct UsbEndpoint *endp);
+
+typedef int (*sceUsbStart_t)(const char *driverName, int size, void *args);
+typedef int (*sceUsbStop_t)(const char *driverName, int size, void *args);
+typedef int (*sceUsbActivate_t)(int pid);
+typedef int (*sceUsbDeactivate_t)(int pid);
+
+static sceUsbbdRegister_t p_sceUsbbdRegister = NULL;
+static sceUsbbdUnregister_t p_sceUsbbdUnregister = NULL;
+static sceUsbbdReqSend_t p_sceUsbbdReqSend = NULL;
+static sceUsbbdReqRecv_t p_sceUsbbdReqRecv = NULL;
+static sceUsbbdReqCancelAll_t p_sceUsbbdReqCancelAll = NULL;
+
+static sceUsbStart_t p_sceUsbStart = NULL;
+static sceUsbStop_t p_sceUsbStop = NULL;
+static sceUsbActivate_t p_sceUsbActivate = NULL;
+static sceUsbDeactivate_t p_sceUsbDeactivate = NULL;
+
+// Helper to load and start kernel modules dynamically
+static int LoadStartModule(const char *path)
+{
+    u32 loadResult = sceKernelLoadModule(path, 0, NULL);
+    if (loadResult & 0x80000000)
+        return -1;
+    
+    int status = 0;
+    u32 startResult = sceKernelStartModule(loadResult, 0, NULL, &status, NULL);
+    if (loadResult != startResult)
+        return -2;
+    
+    return 0;
+}
+
+static void* find_export_by_nid(const char* mod_name, u32 nid) {
+    SceModule *mod = sceKernelFindModuleByName(mod_name);
+    if (!mod) return NULL;
+
+    unsigned char *ent_top = (unsigned char *)mod->ent_top;
+    unsigned int ent_size = mod->ent_size;
+    unsigned int i = 0;
+
+    while (i < ent_size) {
+        SceLibraryEntryTable *entry = (SceLibraryEntryTable *)(ent_top + i);
+        if (entry->len == 0) break;
+
+        unsigned int *entry_table = (unsigned int *)entry->entrytable;
+        if (entry_table) {
+            int func_count = entry->stubcount;
+            int var_count = entry->vstubcount;
+            for (int f = 0; f < func_count; f++) {
+                if (entry_table[f] == nid) {
+                    return (void *)entry_table[func_count + var_count + f];
+                }
+            }
+        }
+        i += entry->len * 4;
+    }
+    return NULL;
+}
 
 #define USB_TRANSEVENT_BULKIN_DONE  1
 #define USB_TRANSEVENT_BULKOUT_DONE 2
@@ -297,7 +363,31 @@ PSPDL_TransportResult transport_initialize(void)
         return PSPDL_TRANSPORT_ERROR;
     }
 
-    int ret = sceUsbbdRegister(&g_driver);
+    // Load modules dynamically from flash0
+    LoadStartModule("flash0:/kd/usb.prx");
+    LoadStartModule("flash0:/kd/usbbd.prx");
+
+    // Resolve functions thread-safely via export tables
+    p_sceUsbStart = (sceUsbStart_t)find_export_by_nid("sceUSB_Service", 0xAE5DEB97);
+    p_sceUsbStop = (sceUsbStop_t)find_export_by_nid("sceUSB_Service", 0x3C2007C0);
+    p_sceUsbActivate = (sceUsbActivate_t)find_export_by_nid("sceUSB_Service", 0x586205D8);
+    p_sceUsbDeactivate = (sceUsbDeactivate_t)find_export_by_nid("sceUSB_Service", 0x959E6A1E);
+
+    p_sceUsbbdRegister = (sceUsbbdRegister_t)find_export_by_nid("sceUsbBusDriver", 0x5C2AE2C4);
+    p_sceUsbbdUnregister = (sceUsbbdUnregister_t)find_export_by_nid("sceUsbBusDriver", 0xD94541CE);
+    p_sceUsbbdReqSend = (sceUsbbdReqSend_t)find_export_by_nid("sceUsbBusDriver", 0xC5266858);
+    p_sceUsbbdReqRecv = (sceUsbbdReqRecv_t)find_export_by_nid("sceUsbBusDriver", 0xF349CD03);
+    p_sceUsbbdReqCancelAll = (sceUsbbdReqCancelAll_t)find_export_by_nid("sceUsbBusDriver", 0x83B367BF);
+
+    // Fall back to emulator mode if dynamic binding failed (e.g. running on OFW/PPSSPP)
+    if (!p_sceUsbbdRegister || !p_sceUsbStart || !p_sceUsbActivate || !p_sceUsbbdReqSend || !p_sceUsbbdReqRecv)
+    {
+        g_mock_mode = 1;
+        pspDebugScreenPrintf("[WARN] Dynamic USB binding failed. Emulator Mode.\n");
+        return PSPDL_TRANSPORT_OK;
+    }
+
+    int ret = p_sceUsbbdRegister(&g_driver);
     if (ret < 0)
     {
         g_mock_mode = 1;
@@ -305,31 +395,31 @@ PSPDL_TransportResult transport_initialize(void)
         return PSPDL_TRANSPORT_OK;
     }
 
-    ret = sceUsbStart(PSP_USBBUS_DRIVERNAME, 0, 0);
+    ret = p_sceUsbStart(PSP_USBBUS_DRIVERNAME, 0, 0);
     if (ret != 0)
     {
-        sceUsbbdUnregister(&g_driver);
+        p_sceUsbbdUnregister(&g_driver);
         g_mock_mode = 1;
         pspDebugScreenPrintf("[WARN] USB Bus start failed (0x%08X). Emulator Mode.\n", ret);
         return PSPDL_TRANSPORT_OK;
     }
 
-    ret = sceUsbStart(g_driver.name, 0, 0);
+    ret = p_sceUsbStart(g_driver.name, 0, 0);
     if (ret != 0)
     {
-        sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0);
-        sceUsbbdUnregister(&g_driver);
+        p_sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0);
+        p_sceUsbbdUnregister(&g_driver);
         g_mock_mode = 1;
         pspDebugScreenPrintf("[WARN] Driver start failed (0x%08X). Emulator Mode.\n", ret);
         return PSPDL_TRANSPORT_OK;
     }
 
-    ret = sceUsbActivate(PSPDL_USB_PRODUCT_ID);
+    ret = p_sceUsbActivate(PSPDL_USB_PRODUCT_ID);
     if (ret != 0)
     {
-        sceUsbStop(g_driver.name, 0, 0);
-        sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0);
-        sceUsbbdUnregister(&g_driver);
+        p_sceUsbStop(g_driver.name, 0, 0);
+        p_sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0);
+        p_sceUsbbdUnregister(&g_driver);
         g_mock_mode = 1;
         pspDebugScreenPrintf("[WARN] USB Activate failed (0x%08X). Emulator Mode.\n", ret);
         return PSPDL_TRANSPORT_OK;
@@ -351,13 +441,16 @@ PSPDL_TransportResult transport_shutdown(void)
         return PSPDL_TRANSPORT_OK;
     }
 
-    sceUsbbdReqCancelAll(&g_endpoints[1]);
-    sceUsbbdReqCancelAll(&g_endpoints[2]);
+    if (p_sceUsbbdReqCancelAll)
+    {
+        p_sceUsbbdReqCancelAll(&g_endpoints[1]);
+        p_sceUsbbdReqCancelAll(&g_endpoints[2]);
+    }
 
-    sceUsbDeactivate(PSPDL_USB_PRODUCT_ID);
-    sceUsbStop(g_driver.name, 0, 0);
-    sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0);
-    sceUsbbdUnregister(&g_driver);
+    if (p_sceUsbDeactivate) p_sceUsbDeactivate(PSPDL_USB_PRODUCT_ID);
+    if (p_sceUsbStop) p_sceUsbStop(g_driver.name, 0, 0);
+    if (p_sceUsbStop) p_sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0);
+    if (p_sceUsbbdUnregister) p_sceUsbbdUnregister(&g_driver);
 
     if (g_transevent >= 0)
     {
@@ -407,7 +500,7 @@ PSPDL_TransportResult transport_send(
 
             sceKernelClearEventFlag(g_transevent, ~USB_TRANSEVENT_BULKIN_DONE);
             
-            ret = sceUsbbdReqSend(&g_bulkin_req);
+            ret = p_sceUsbbdReqSend(&g_bulkin_req);
             if (ret < 0)
             {
                 return PSPDL_TRANSPORT_ERROR;
@@ -418,7 +511,7 @@ PSPDL_TransportResult transport_send(
             ret = sceKernelWaitEventFlag(g_transevent, USB_TRANSEVENT_BULKIN_DONE, PSP_EVENT_WAITOR | PSP_EVENT_WAITCLEAR, &result, &timeout);
             if (ret < 0)
             {
-                sceUsbbdReqCancelAll(&g_endpoints[1]);
+                p_sceUsbbdReqCancelAll(&g_endpoints[1]);
                 return PSPDL_TRANSPORT_ERROR;
             }
 
@@ -447,7 +540,7 @@ PSPDL_TransportResult transport_send(
 
             sceKernelClearEventFlag(g_transevent, ~USB_TRANSEVENT_BULKIN_DONE);
             
-            ret = sceUsbbdReqSend(&g_bulkin_req);
+            ret = p_sceUsbbdReqSend(&g_bulkin_req);
             if (ret < 0)
             {
                 return PSPDL_TRANSPORT_ERROR;
@@ -457,7 +550,7 @@ PSPDL_TransportResult transport_send(
             ret = sceKernelWaitEventFlag(g_transevent, USB_TRANSEVENT_BULKIN_DONE, PSP_EVENT_WAITOR | PSP_EVENT_WAITCLEAR, &result, &timeout);
             if (ret < 0)
             {
-                sceUsbbdReqCancelAll(&g_endpoints[1]);
+                p_sceUsbbdReqCancelAll(&g_endpoints[1]);
                 return PSPDL_TRANSPORT_ERROR;
             }
 
@@ -654,7 +747,7 @@ PSPDL_TransportResult transport_receive(
 
         sceKernelClearEventFlag(g_transevent, ~USB_TRANSEVENT_BULKOUT_DONE);
 
-        ret = sceUsbbdReqRecv(&g_bulkout_req);
+        ret = p_sceUsbbdReqRecv(&g_bulkout_req);
         if (ret < 0)
         {
             return PSPDL_TRANSPORT_ERROR;
