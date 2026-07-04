@@ -99,6 +99,38 @@ int main(void)
             return 0;
         }
 
+        // Handle SELECT button toggle history
+        static int select_was_pressed = 0;
+        if ((pad.Buttons & PSP_CTRL_SELECT) && 
+            !(pad.Buttons & PSP_CTRL_SQUARE) && 
+            !(pad.Buttons & PSP_CTRL_TRIANGLE))
+        {
+            if (!select_was_pressed)
+            {
+                ui_toggle_history();
+                select_was_pressed = 1;
+            }
+        }
+        else
+        {
+            select_was_pressed = 0;
+        }
+
+        // Handle CIRCLE button overlays / clears
+        static int circle_was_pressed = 0;
+        if (pad.Buttons & PSP_CTRL_CIRCLE)
+        {
+            if (!circle_was_pressed)
+            {
+                ui_handle_circle_press();
+                circle_was_pressed = 1;
+            }
+        }
+        else
+        {
+            circle_was_pressed = 0;
+        }
+
         // Try to receive a packet header
         uint8_t rx_buf[PSPDL_PACKET_HEADER_SIZE];
         size_t received = 0;

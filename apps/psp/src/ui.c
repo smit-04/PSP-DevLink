@@ -4,6 +4,152 @@
 #include <stdio.h>
 #include <string.h>
 
+static PSPDL_NotificationPayload s_notif_history[5];
+static int s_notif_history_count = 0;
+static int s_showing_history = 0;
+
+static int s_popup_active = 0;
+static int s_popup_ticks = 0; // 100 ticks = 1 second
+static PSPDL_NotificationPayload s_active_popup_notif;
+
+void ui_add_notification(const PSPDL_NotificationPayload *notif)
+{
+    if (notif == NULL || notif->app_name[0] == '\0')
+    {
+        return;
+    }
+
+    // Check if this notification matches the most recent one in history to avoid duplicates
+    if (s_notif_history_count > 0 && 
+        strcmp(s_notif_history[0].app_name, notif->app_name) == 0 &&
+        strcmp(s_notif_history[0].summary, notif->summary) == 0 &&
+        strcmp(s_notif_history[0].body, notif->body) == 0)
+    {
+        // Already recorded; if not active, trigger the popup again
+        if (!s_popup_active)
+        {
+            s_active_popup_notif = *notif;
+            s_popup_active = 1;
+            s_popup_ticks = 500; // 5 seconds
+        }
+        return;
+    }
+
+    // Shift history right
+    for (int i = 4; i > 0; i--)
+    {
+        s_notif_history[i] = s_notif_history[i - 1];
+    }
+    s_notif_history[0] = *notif;
+    
+    if (s_notif_history_count < 5)
+    {
+        s_notif_history_count++;
+    }
+
+    // Trigger popup
+    s_active_popup_notif = *notif;
+    s_popup_active = 1;
+    s_popup_ticks = 500; // 5 seconds
+}
+
+void ui_toggle_history(void)
+{
+    s_showing_history = !s_showing_history;
+}
+
+void ui_close_active_popup(void)
+{
+    s_popup_active = 0;
+    s_popup_ticks = 0;
+}
+
+void ui_clear_history(void)
+{
+    memset(s_notif_history, 0, sizeof(s_notif_history));
+    s_notif_history_count = 0;
+}
+
+void ui_handle_circle_press(void)
+{
+    if (s_popup_active)
+    {
+        s_popup_active = 0;
+        s_popup_ticks = 0;
+    }
+    else if (s_showing_history)
+    {
+        ui_clear_history();
+    }
+}
+
+static void ui_draw_popup(void)
+{
+    int start_row = 7;
+    int end_row = 15;
+    int start_col = 10;
+    int end_col = 57;
+
+    // Overwrite standard cards backgrounds
+    for (int r = start_row; r <= end_row; r++)
+    {
+        pspDebugScreenSetXY(start_col, r);
+        for (int c = start_col; c <= end_col; c++)
+        {
+            if (r == start_row && c == start_col) {
+                pspDebugScreenSetTextColor(0xFF888888);
+                pspDebugScreenPrintf("+");
+            } else if (r == start_row && c == end_col) {
+                pspDebugScreenPrintf("+");
+            } else if (r == end_row && c == start_col) {
+                pspDebugScreenPrintf("+");
+            } else if (r == end_row && c == end_col) {
+                pspDebugScreenPrintf("+");
+            } else if (r == start_row || r == end_row) {
+                pspDebugScreenSetTextColor(0xFF888888);
+                pspDebugScreenPrintf("=");
+            } else if (c == start_col || c == end_col) {
+                pspDebugScreenSetTextColor(0xFF888888);
+                pspDebugScreenPrintf("|");
+            } else {
+                pspDebugScreenPrintf(" ");
+            }
+        }
+    }
+
+    // Draw Title
+    pspDebugScreenSetXY(start_col + 2, start_row + 1);
+    pspDebugScreenSetTextColor(0xFF00FFFF); // Yellow
+    pspDebugScreenPrintf("[NEW NOTIFICATION]");
+
+    // Draw App Name
+    pspDebugScreenSetXY(start_col + 2, start_row + 2);
+    pspDebugScreenSetTextColor(0xFFFFFF00); // Cyan
+    pspDebugScreenPrintf("App  : %s", s_active_popup_notif.app_name);
+
+    // Draw Summary
+    pspDebugScreenSetXY(start_col + 2, start_row + 3);
+    pspDebugScreenSetTextColor(0xFFFFFFFF); // White
+    char sum_truncated[41];
+    strncpy(sum_truncated, s_active_popup_notif.summary, 40);
+    sum_truncated[40] = '\0';
+    pspDebugScreenPrintf("Title: %s", sum_truncated);
+
+    // Draw Body
+    pspDebugScreenSetXY(start_col + 2, start_row + 4);
+    pspDebugScreenSetTextColor(0xFFCCCCCC); // Grey
+    char body_truncated[41];
+    strncpy(body_truncated, s_active_popup_notif.body, 40);
+    body_truncated[40] = '\0';
+    pspDebugScreenPrintf("Body : %s", body_truncated);
+
+    // Draw countdown details
+    pspDebugScreenSetXY(start_col + 2, start_row + 6);
+    pspDebugScreenSetTextColor(0xFF555555); // Dark grey
+    int secs_left = (s_popup_ticks + 99) / 100;
+    pspDebugScreenPrintf("[ Auto-closing in %ds | O to dismiss ]", secs_left);
+}
+
 void ui_init(void)
 {
     // Initialize debug screen system
@@ -56,6 +202,12 @@ void ui_render(
     const PSPDL_GitStatusPayload *git,
     const PSPDL_NotificationPayload *notif)
 {
+    // Check if the notif is new and not empty
+    if (notif != NULL && notif->app_name[0] != '\0')
+    {
+        ui_add_notification(notif);
+    }
+
     /* ---- vsync: wait for vertical blank so we draw during the off-screen
             period — this is the standard fix for PSP debug-screen flicker ---- */
     sceDisplayWaitVblankStart();
@@ -90,127 +242,194 @@ void ui_render(
         pspDebugScreenPrintf("[ SEARCHING FOR HOST... ]  ");
     }
 
-    /* ===== LEFT CARD border — cols 1-32, rows 6-16 ===== */
-    pspDebugScreenSetTextColor(0xFF888888);
-
-    pspDebugScreenSetXY(1, 6);
-    pspDebugScreenPrintf("+---- SYSTEM TELEMETRY ----+");
-
-    for (int j = 1; j <= 9; j++)
+    if (s_showing_history)
     {
-        pspDebugScreenSetXY(1, 6 + j);
-        pspDebugScreenPrintf("|                          |");
-    }
+        // Clear panel area first (rows 6 to 16)
+        for (int r = 6; r <= 16; r++)
+        {
+            pspDebugScreenSetXY(1, r);
+            for (int c = 1; c <= 64; c++)
+            {
+                pspDebugScreenPrintf(" ");
+            }
+        }
 
-    pspDebugScreenSetXY(1, 16);
-    pspDebugScreenPrintf("+--------------------------+");
+        // Print Header
+        pspDebugScreenSetXY(2, 6);
+        pspDebugScreenSetTextColor(0xFF00FFFF); // Yellow
+        pspDebugScreenPrintf("--- NOTIFICATION HISTORY DRAWER (Last %d) ---", s_notif_history_count);
 
-    /* ===== RIGHT CARD border — cols 34-65, rows 6-16 ===== */
-    pspDebugScreenSetXY(34, 6);
-    pspDebugScreenPrintf("+--- GIT WORKSPACE STATUS --+");
+        if (s_notif_history_count == 0)
+        {
+            pspDebugScreenSetXY(5, 10);
+            pspDebugScreenSetTextColor(0xFF555555); // Grey
+            pspDebugScreenPrintf("[ No notifications in history ]");
+        }
+        else
+        {
+            for (int i = 0; i < s_notif_history_count; i++)
+            {
+                int row = 8 + i; // Row 8, 9, 10, 11, 12
+                pspDebugScreenSetXY(2, row);
+                
+                // Color tags: highlight Yellow for "[X] ", Cyan for app, White for text
+                pspDebugScreenSetTextColor(0xFF00FFFF); // Yellow
+                pspDebugScreenPrintf("[%d] ", i + 1);
+                
+                pspDebugScreenSetTextColor(0xFFFFFF00); // Cyan
+                pspDebugScreenPrintf("%s: ", s_notif_history[i].app_name);
+                
+                pspDebugScreenSetTextColor(0xFFFFFFFF); // White
+                char text_to_print[128];
+                snprintf(text_to_print, sizeof(text_to_print), "%s - %s", s_notif_history[i].summary, s_notif_history[i].body);
+                
+                int prefix_len = 4 + strlen(s_notif_history[i].app_name) + 2;
+                int remaining_cols = 62 - prefix_len;
+                if (remaining_cols > 0)
+                {
+                    char final_msg[128];
+                    strncpy(final_msg, text_to_print, remaining_cols);
+                    final_msg[remaining_cols] = '\0';
+                    if (strlen(text_to_print) > (size_t)remaining_cols && remaining_cols >= 3)
+                    {
+                        final_msg[remaining_cols - 1] = '.';
+                        final_msg[remaining_cols - 2] = '.';
+                        final_msg[remaining_cols - 3] = '.';
+                    }
+                    pspDebugScreenPrintf("%s", final_msg);
+                }
+            }
+        }
 
-    for (int j = 1; j <= 9; j++)
-    {
-        pspDebugScreenSetXY(34, 6 + j);
-        pspDebugScreenPrintf("|                           |");
-    }
-
-    pspDebugScreenSetXY(34, 16);
-    pspDebugScreenPrintf("+---------------------------+");
-
-    /* ===== LEFT CARD content ===== */
-    if (conn_state == UI_CONN_CONNECTED && stats != NULL)
-    {
-        /* CPU bar */
-        pspDebugScreenSetXY(3, 8);
-        pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("CPU: ");
-        draw_progress_bar(8, 8, (int)stats->cpu_usage, 100, 0xFF00FF00);
-        pspDebugScreenSetXY(20, 8);
-        pspDebugScreenSetTextColor(0xFFFFFFFF);
-        pspDebugScreenPrintf("%3d%%", (int)stats->cpu_usage);
-
-        /* RAM bar */
-        pspDebugScreenSetXY(3, 10);
-        pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("RAM: ");
-        draw_progress_bar(8, 10, (int)stats->ram_usage, 100, 0xFF00FF00);
-        pspDebugScreenSetXY(20, 10);
-        pspDebugScreenSetTextColor(0xFFFFFFFF);
-        pspDebugScreenPrintf("%3d%%", (int)stats->ram_usage);
-
-        /* CPU temp */
-        pspDebugScreenSetXY(3, 12);
-        pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("Temp: ");
-        pspDebugScreenSetTextColor(0xFFFFFFFF);
-        pspDebugScreenPrintf("%3d.%d C ", (int)(stats->cpu_temp / 10),
-                                          (int)(stats->cpu_temp % 10));
-
-        /* Free memory */
-        double total_gb = (double)stats->ram_total / (1024.0 * 1024.0 * 1024.0);
-        double free_gb  = (double)stats->ram_free  / (1024.0 * 1024.0 * 1024.0);
-        pspDebugScreenSetXY(3, 14);
-        pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("Mem:  ");
-        pspDebugScreenSetTextColor(0xFFFFFFFF);
-        pspDebugScreenPrintf("%.1f/%.1f GB ", free_gb, total_gb);
+        // Print help instructions inside the panel
+        pspDebugScreenSetXY(2, 15);
+        pspDebugScreenSetTextColor(0xFF555555); // Grey
+        pspDebugScreenPrintf("[ SELECT: Back | CIRCLE: Clear History ]");
     }
     else
     {
-        pspDebugScreenSetTextColor(0xFF555555);
-        pspDebugScreenSetXY(3, 8);
-        pspDebugScreenPrintf("CPU: [----------] --%%");
-        pspDebugScreenSetXY(3, 10);
-        pspDebugScreenPrintf("RAM: [----------] --%%");
-        pspDebugScreenSetXY(3, 12);
-        pspDebugScreenPrintf("Temp:  --.- C      ");
-        pspDebugScreenSetXY(3, 14);
-        pspDebugScreenPrintf("Mem:  --.-- GB    ");
-    }
+        /* ===== LEFT CARD border — cols 1-32, rows 6-16 ===== */
+        pspDebugScreenSetTextColor(0xFF888888);
 
-    /* ===== RIGHT CARD content ===== */
-    if (conn_state == UI_CONN_CONNECTED && git != NULL)
-    {
-        /* Branch */
-        pspDebugScreenSetXY(36, 8);
-        pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("Branch: ");
-        pspDebugScreenSetTextColor(0xFFFFFF00);       /* cyan */
-        pspDebugScreenPrintf("%-14s", git->branch_name);
+        pspDebugScreenSetXY(1, 6);
+        pspDebugScreenPrintf("+---- SYSTEM TELEMETRY ----+");
 
-        /* Modified */
-        pspDebugScreenSetXY(36, 10);
-        pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("Modif:  ");
-        pspDebugScreenSetTextColor(git->modified_files > 0 ? 0xFF0000FF : 0xFF00FF00);
-        pspDebugScreenPrintf("%-3u files ", (unsigned int)git->modified_files);
+        for (int j = 1; j <= 9; j++)
+        {
+            pspDebugScreenSetXY(1, 6 + j);
+            pspDebugScreenPrintf("|                          |");
+        }
 
-        /* Untracked */
-        pspDebugScreenSetXY(36, 12);
-        pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("Untrk:  ");
-        pspDebugScreenSetTextColor(git->untracked_files > 0 ? 0xFF00FFFF : 0xFF00FF00);
-        pspDebugScreenPrintf("%-3u files ", (unsigned int)git->untracked_files);
+        pspDebugScreenSetXY(1, 16);
+        pspDebugScreenPrintf("+--------------------------+");
 
-        /* Worktree */
-        pspDebugScreenSetXY(36, 14);
-        pspDebugScreenSetTextColor(0xFFCCCCCC);
-        pspDebugScreenPrintf("Tree:   ");
-        pspDebugScreenSetTextColor(0xFF00FF00);
-        pspDebugScreenPrintf("ACTIVE  ");
-    }
-    else
-    {
-        pspDebugScreenSetTextColor(0xFF555555);
-        pspDebugScreenSetXY(36, 8);
-        pspDebugScreenPrintf("Branch: --            ");
-        pspDebugScreenSetXY(36, 10);
-        pspDebugScreenPrintf("Modif:  -- files      ");
-        pspDebugScreenSetXY(36, 12);
-        pspDebugScreenPrintf("Untrk:  -- files      ");
-        pspDebugScreenSetXY(36, 14);
-        pspDebugScreenPrintf("Tree:   INACTIVE      ");
+        /* ===== RIGHT CARD border — cols 34-65, rows 6-16 ===== */
+        pspDebugScreenSetXY(34, 6);
+        pspDebugScreenPrintf("+--- GIT WORKSPACE STATUS --+");
+
+        for (int j = 1; j <= 9; j++)
+        {
+            pspDebugScreenSetXY(34, 6 + j);
+            pspDebugScreenPrintf("|                           |");
+        }
+
+        pspDebugScreenSetXY(34, 16);
+        pspDebugScreenPrintf("+---------------------------+");
+
+        /* ===== LEFT CARD content ===== */
+        if (conn_state == UI_CONN_CONNECTED && stats != NULL)
+        {
+            /* CPU bar */
+            pspDebugScreenSetXY(3, 8);
+            pspDebugScreenSetTextColor(0xFFCCCCCC);
+            pspDebugScreenPrintf("CPU: ");
+            draw_progress_bar(8, 8, (int)stats->cpu_usage, 100, 0xFF00FF00);
+            pspDebugScreenSetXY(20, 8);
+            pspDebugScreenSetTextColor(0xFFFFFFFF);
+            pspDebugScreenPrintf("%3d%%", (int)stats->cpu_usage);
+
+            /* RAM bar */
+            pspDebugScreenSetXY(3, 10);
+            pspDebugScreenSetTextColor(0xFFCCCCCC);
+            pspDebugScreenPrintf("RAM: ");
+            draw_progress_bar(8, 10, (int)stats->ram_usage, 100, 0xFF00FF00);
+            pspDebugScreenSetXY(20, 10);
+            pspDebugScreenSetTextColor(0xFFFFFFFF);
+            pspDebugScreenPrintf("%3d%%", (int)stats->ram_usage);
+
+            /* CPU temp */
+            pspDebugScreenSetXY(3, 12);
+            pspDebugScreenSetTextColor(0xFFCCCCCC);
+            pspDebugScreenPrintf("Temp: ");
+            pspDebugScreenSetTextColor(0xFFFFFFFF);
+            pspDebugScreenPrintf("%3d.%d C ", (int)(stats->cpu_temp / 10),
+                                              (int)(stats->cpu_temp % 10));
+
+            /* Free memory */
+            double total_gb = (double)stats->ram_total / (1024.0 * 1024.0 * 1024.0);
+            double free_gb  = (double)stats->ram_free  / (1024.0 * 1024.0 * 1024.0);
+            pspDebugScreenSetXY(3, 14);
+            pspDebugScreenSetTextColor(0xFFCCCCCC);
+            pspDebugScreenPrintf("Mem:  ");
+            pspDebugScreenSetTextColor(0xFFFFFFFF);
+            pspDebugScreenPrintf("%.1f/%.1f GB ", free_gb, total_gb);
+        }
+        else
+        {
+            pspDebugScreenSetTextColor(0xFF555555);
+            pspDebugScreenSetXY(3, 8);
+            pspDebugScreenPrintf("CPU: [----------] --%%");
+            pspDebugScreenSetXY(3, 10);
+            pspDebugScreenPrintf("RAM: [----------] --%%");
+            pspDebugScreenSetXY(3, 12);
+            pspDebugScreenPrintf("Temp:  --.- C      ");
+            pspDebugScreenSetXY(3, 14);
+            pspDebugScreenPrintf("Mem:  --.-- GB    ");
+        }
+
+        /* ===== RIGHT CARD content ===== */
+        if (conn_state == UI_CONN_CONNECTED && git != NULL)
+        {
+            /* Branch */
+            pspDebugScreenSetXY(36, 8);
+            pspDebugScreenSetTextColor(0xFFCCCCCC);
+            pspDebugScreenPrintf("Branch: ");
+            pspDebugScreenSetTextColor(0xFFFFFF00);       /* cyan */
+            pspDebugScreenPrintf("%-14s", git->branch_name);
+
+            /* Modified */
+            pspDebugScreenSetXY(36, 10);
+            pspDebugScreenSetTextColor(0xFFCCCCCC);
+            pspDebugScreenPrintf("Modif:  ");
+            pspDebugScreenSetTextColor(git->modified_files > 0 ? 0xFF0000FF : 0xFF00FF00);
+            pspDebugScreenPrintf("%-3u files ", (unsigned int)git->modified_files);
+
+            /* Untracked */
+            pspDebugScreenSetXY(36, 12);
+            pspDebugScreenSetTextColor(0xFFCCCCCC);
+            pspDebugScreenPrintf("Untrk:  ");
+            pspDebugScreenSetTextColor(git->untracked_files > 0 ? 0xFF00FFFF : 0xFF00FF00);
+            pspDebugScreenPrintf("%-3u files ", (unsigned int)git->untracked_files);
+
+            /* Worktree */
+            pspDebugScreenSetXY(36, 14);
+            pspDebugScreenSetTextColor(0xFFCCCCCC);
+            pspDebugScreenPrintf("Tree:   ");
+            pspDebugScreenSetTextColor(0xFF00FF00);
+            pspDebugScreenPrintf("ACTIVE  ");
+        }
+        else
+        {
+            pspDebugScreenSetTextColor(0xFF555555);
+            pspDebugScreenSetXY(36, 8);
+            pspDebugScreenPrintf("Branch: --            ");
+            pspDebugScreenSetXY(36, 10);
+            pspDebugScreenPrintf("Modif:  -- files      ");
+            pspDebugScreenSetXY(36, 12);
+            pspDebugScreenPrintf("Untrk:  -- files      ");
+            pspDebugScreenSetXY(36, 14);
+            pspDebugScreenPrintf("Tree:   INACTIVE      ");
+        }
     }
 
     /* ===== FOOTER ===== */
@@ -290,5 +509,20 @@ void ui_render(
     for (int i = 0; i < 66; i++)
     {
         pspDebugScreenPrintf(" ");
+    }
+
+    // Draw popup overlay if active
+    if (s_popup_active)
+    {
+        ui_draw_popup();
+        
+        if (s_popup_ticks > 0)
+        {
+            s_popup_ticks--;
+        }
+        else
+        {
+            s_popup_active = 0;
+        }
     }
 }

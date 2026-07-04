@@ -17,4 +17,10 @@ void ui_render(
     const PSPDL_GitStatusPayload *git,
     const PSPDL_NotificationPayload *notif);
 
+void ui_add_notification(const PSPDL_NotificationPayload *notif);
+void ui_toggle_history(void);
+void ui_close_active_popup(void);
+void ui_clear_history(void);
+void ui_handle_circle_press(void);
+
 #endif // PSPDL_UI_H
