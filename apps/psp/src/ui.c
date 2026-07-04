@@ -96,6 +96,16 @@ void ui_handle_circle_press(void)
     {
         s_popup_active = 0;
         s_popup_ticks = 0;
+        
+        // Clear panel area once to prevent residues
+        for (int r = 6; r <= 16; r++)
+        {
+            pspDebugScreenSetXY(1, r);
+            for (int c = 1; c <= 64; c++)
+            {
+                pspDebugScreenPrintf(" ");
+            }
+        }
     }
     else if (s_showing_history)
     {
@@ -537,6 +547,16 @@ void ui_render(
         else
         {
             s_popup_active = 0;
+            
+            // Clear panel area once to prevent residues
+            for (int r = 6; r <= 16; r++)
+            {
+                pspDebugScreenSetXY(1, r);
+                for (int c = 1; c <= 64; c++)
+                {
+                    pspDebugScreenPrintf(" ");
+                }
+            }
         }
     }
 }
