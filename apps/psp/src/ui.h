@@ -14,6 +14,7 @@ void ui_init(void);
 void ui_render(
     UIConnectionState conn_state,
     const PSPDL_SystemStatsPayload *stats,
-    const PSPDL_GitStatusPayload *git);
+    const PSPDL_GitStatusPayload *git,
+    const PSPDL_NotificationPayload *notif);
 
 #endif // PSPDL_UI_H

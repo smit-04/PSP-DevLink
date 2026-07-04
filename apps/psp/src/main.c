@@ -185,7 +185,7 @@ int main(void)
 
         // Render dashboard GUI
         UIConnectionState ui_state = (state == STATE_CONNECTED) ? UI_CONN_CONNECTED : UI_CONN_DISCONNECTED;
-        ui_render(ui_state, &g_current_stats, &g_current_git);
+        ui_render(ui_state, &g_current_stats, &g_current_git, &g_current_notif);
 
         // Delay 10ms per iteration (10,000 microseconds)
         sceKernelDelayThread(10000);

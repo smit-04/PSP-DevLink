@@ -4,6 +4,7 @@
 #include "protocol/payload.h"
 #include "system_service.h"
 #include "git_service.h"
+#include "notification_service.h"
 
 #include <iostream>
 #include <thread>
@@ -28,9 +29,11 @@ int main()
     auto last_heartbeat_time = std::chrono::steady_clock::now();
     auto last_stats_time = std::chrono::steady_clock::now();
     auto last_git_time = std::chrono::steady_clock::now();
+    auto last_notif_time = std::chrono::steady_clock::now();
 
     SystemService system_service;
     GitService git_service;
+    NotificationService notification_service;
 
     while (true)
     {
@@ -95,6 +98,7 @@ int main()
                         last_heartbeat_time = std::chrono::steady_clock::now();
                         last_stats_time = std::chrono::steady_clock::now();
                         last_git_time = std::chrono::steady_clock::now();
+                        last_notif_time = std::chrono::steady_clock::now();
                     }
                 }
             }
@@ -201,6 +205,42 @@ int main()
                     continue;
                 }
                 last_git_time = now;
+            }
+
+            // Check for notifications every 500ms
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_notif_time).count() >= 500)
+            {
+                NotificationMetrics metrics = notification_service.get_latest();
+                if (metrics.is_new)
+                {
+                    PSPDL_NotificationPayload notif;
+                    memset(&notif, 0, sizeof(notif));
+                    strncpy(notif.app_name, metrics.app_name.c_str(), sizeof(notif.app_name) - 1);
+                    strncpy(notif.summary, metrics.summary.c_str(), sizeof(notif.summary) - 1);
+                    strncpy(notif.body, metrics.body.c_str(), sizeof(notif.body) - 1);
+
+                    PSPDL_PacketHeader hdr;
+                    hdr.magic = PSPDL_PROTOCOL_MAGIC;
+                    hdr.protocol_version = (PSPDL_PROTOCOL_VERSION_MAJOR << 8) | PSPDL_PROTOCOL_VERSION_MINOR;
+                    hdr.message_id = PSPDL_MESSAGE_NOTIFICATION;
+                    hdr.payload_size = PSPDL_PAYLOAD_NOTIFICATION_SIZE;
+
+                    uint8_t tx_buf[PSPDL_PACKET_HEADER_SIZE + PSPDL_PAYLOAD_NOTIFICATION_SIZE];
+                    pspl_serialize_header(&hdr, tx_buf, PSPDL_PACKET_HEADER_SIZE);
+                    pspl_serialize_notification(&notif, tx_buf + PSPDL_PACKET_HEADER_SIZE, PSPDL_PAYLOAD_NOTIFICATION_SIZE);
+
+                    std::cout << "[INFO] Sending Notification: [" << notif.app_name << "] " 
+                              << notif.summary << " - " << notif.body << std::endl;
+
+                    if (transport_send(tx_buf, sizeof(tx_buf)) != PSPDL_TRANSPORT_OK)
+                    {
+                        std::cerr << "[ERROR] Failed to send Notification. Disconnecting..." << std::endl;
+                        transport_shutdown();
+                        state = STATE_DISCONNECTED;
+                        continue;
+                    }
+                }
+                last_notif_time = now;
             }
 
             // Receive check to keep the transport read channel clear

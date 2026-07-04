@@ -53,7 +53,8 @@ static void draw_progress_bar(int x, int y, int val, int max_val, uint32_t bar_c
 void ui_render(
     UIConnectionState conn_state,
     const PSPDL_SystemStatsPayload *stats,
-    const PSPDL_GitStatusPayload *git)
+    const PSPDL_GitStatusPayload *git,
+    const PSPDL_NotificationPayload *notif)
 {
     /* ---- vsync: wait for vertical blank so we draw during the off-screen
             period — this is the standard fix for PSP debug-screen flicker ---- */
@@ -224,4 +225,24 @@ void ui_render(
     pspDebugScreenPrintf(" to exit client application                          |");
     pspDebugScreenSetXY(0, 20);
     pspDebugScreenPrintf("+---------------------------------------------------------------+");
+
+    /* ===== NOTIFICATION TICKER ===== */
+    pspDebugScreenSetXY(1, 22);
+    if (conn_state == UI_CONN_CONNECTED && notif != NULL && notif->app_name[0] != '\0')
+    {
+        pspDebugScreenSetTextColor(0xFF00FFFF); // Yellow "[NOTIF]" tag
+        pspDebugScreenPrintf("[NOTIF] ");
+        pspDebugScreenSetTextColor(0xFFFFFF00); // Cyan app name
+        pspDebugScreenPrintf("%s: ", notif->app_name);
+        pspDebugScreenSetTextColor(0xFFFFFFFF); // White body/summary
+        
+        char combined[128];
+        snprintf(combined, sizeof(combined), "%s - %s", notif->summary, notif->body);
+        pspDebugScreenPrintf("%-45s", combined);
+    }
+    else
+    {
+        pspDebugScreenSetTextColor(0xFF555555); // Grey placeholder
+        pspDebugScreenPrintf("[NOTIF] No notifications received              ");
+    }
 }

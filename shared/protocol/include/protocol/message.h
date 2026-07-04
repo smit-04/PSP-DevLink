@@ -19,7 +19,8 @@ typedef enum
 
     /* System Telemetry */
     PSPDL_MESSAGE_SYSTEM_STATS = 3,
-    PSPDL_MESSAGE_GIT_STATUS = 4
+    PSPDL_MESSAGE_GIT_STATUS = 4,
+    PSPDL_MESSAGE_NOTIFICATION = 5
 
 } PSPDL_MessageId;
 

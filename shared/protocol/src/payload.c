@@ -137,3 +137,70 @@ int pspl_deserialize_git_status(
 
     return 0;
 }
+
+int pspl_serialize_notification(
+    const PSPDL_NotificationPayload *notif,
+    uint8_t *buffer,
+    size_t size)
+{
+    if (notif == NULL || buffer == NULL || size < PSPDL_PAYLOAD_NOTIFICATION_SIZE)
+    {
+        return -1;
+    }
+
+    memset(buffer, 0, PSPDL_PAYLOAD_NOTIFICATION_SIZE);
+    
+    // Copy app_name (up to 23 chars + null terminator)
+    for (int i = 0; i < 23 && notif->app_name[i] != '\0'; i++)
+    {
+        buffer[i] = (uint8_t)notif->app_name[i];
+    }
+    
+    // Copy summary (up to 51 chars + null terminator)
+    for (int i = 0; i < 51 && notif->summary[i] != '\0'; i++)
+    {
+        buffer[24 + i] = (uint8_t)notif->summary[i];
+    }
+
+    // Copy body (up to 51 chars + null terminator)
+    for (int i = 0; i < 51 && notif->body[i] != '\0'; i++)
+    {
+        buffer[76 + i] = (uint8_t)notif->body[i];
+    }
+
+    return 0;
+}
+
+int pspl_deserialize_notification(
+    const uint8_t *buffer,
+    size_t size,
+    PSPDL_NotificationPayload *notif)
+{
+    if (buffer == NULL || notif == NULL || size < PSPDL_PAYLOAD_NOTIFICATION_SIZE)
+    {
+        return -1;
+    }
+
+    memset(notif->app_name, 0, sizeof(notif->app_name));
+    for (int i = 0; i < 23; i++)
+    {
+        notif->app_name[i] = (char)buffer[i];
+    }
+    notif->app_name[23] = '\0';
+
+    memset(notif->summary, 0, sizeof(notif->summary));
+    for (int i = 0; i < 51; i++)
+    {
+        notif->summary[i] = (char)buffer[24 + i];
+    }
+    notif->summary[51] = '\0';
+
+    memset(notif->body, 0, sizeof(notif->body));
+    for (int i = 0; i < 51; i++)
+    {
+        notif->body[i] = (char)buffer[76 + i];
+    }
+    notif->body[51] = '\0';
+
+    return 0;
+}

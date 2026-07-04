@@ -18,6 +18,7 @@ add_executable(PSPDevLinkDesktop
     src/transport_usb.cpp
     src/system_service.cpp
     src/git_service.cpp
+    src/notification_service.cpp
 )
 
 find_package(PkgConfig REQUIRED)
@@ -28,8 +29,11 @@ target_include_directories(PSPDevLinkDesktop
         include
 )
 
+find_package(Threads REQUIRED)
+
 target_link_libraries(PSPDevLinkDesktop
     PRIVATE
         pspdevlink_protocol
         PkgConfig::LIBUSB
+        Threads::Threads
 )

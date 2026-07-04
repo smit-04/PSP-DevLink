@@ -6,6 +6,7 @@
 
 #define PSPDL_PAYLOAD_SYSTEM_STATS_SIZE 20
 #define PSPDL_PAYLOAD_GIT_STATUS_SIZE 40
+#define PSPDL_PAYLOAD_NOTIFICATION_SIZE 128
 
 typedef struct
 {
@@ -22,6 +23,13 @@ typedef struct
     uint32_t untracked_files;
     char branch_name[32];
 } PSPDL_GitStatusPayload;
+
+typedef struct
+{
+    char app_name[24];
+    char summary[52];
+    char body[52];
+} PSPDL_NotificationPayload;
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,6 +54,16 @@ int pspl_deserialize_git_status(
     const uint8_t *buffer,
     size_t size,
     PSPDL_GitStatusPayload *git);
+
+int pspl_serialize_notification(
+    const PSPDL_NotificationPayload *notif,
+    uint8_t *buffer,
+    size_t size);
+
+int pspl_deserialize_notification(
+    const uint8_t *buffer,
+    size_t size,
+    PSPDL_NotificationPayload *notif);
 
 #ifdef __cplusplus
 }
