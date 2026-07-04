@@ -14,7 +14,7 @@ PSP DevLink
 
 # Current Milestone
 
-Milestone 10 — Desktop Companion Settings Page & Session Manager
+Milestone 11 — PSP Notification Card Overlay Popups
 
 Status: COMPLETED (VERIFIED IN EMULATOR)
 
@@ -22,7 +22,7 @@ Status: COMPLETED (VERIFIED IN EMULATOR)
 
 # Objective
 
-Build an interactive, non-blocking Terminal User Interface (TUI) settings dashboard and configuration storage for the Desktop Companion, and support remote console actions (Exit to XMB, Reboot Console) from the companion to the PSP Client.
+Implement visual popup overlay cards on the PSP Client UI to alert users on incoming notifications, and support debounced controller bindings for close actions and full list drawers.
 
 ---
 
@@ -30,18 +30,17 @@ Build an interactive, non-blocking Terminal User Interface (TUI) settings dashbo
 
 Completed during this milestone:
 
-* Register `PSPDL_MESSAGE_CONTROL = 6` and define `PSPDL_ControlPayload` structure (1 byte)
-* Implement `ConfigService` reading/writing configurations to `config.ini` files
-* Implement `TuiService` setting raw termios console parameters and rendering cursor-aligned options pages
-* Integrate configuration variables into the main companion telemetry intervals
-* Process remote exit and reboot triggers client-side, incorporating `<psppower.h>` cold resets
-* Map controller mock button bindings (`SELECT + SQUARE`/`TRIANGLE`) to verify handlers inside emulators
+* Implement static history queue caching last 5 notification payloads in `ui.c`
+* Render visually centered modal boxes mapping app, title, and body elements
+* Setup 5-second automatic close ticks decrementing frame-by-frame
+* Map CIRCLE inputs to dismiss modal dialogs and clear history listings
+* Map SELECT inputs to toggle history drawer overlay panels on the dashboard
 
-Current implementation displays an interactive TUI configurations console on the host, and supports remote client power-off and system reboot signals.
+Current implementation supports dynamically alerting the user about notifications with countdown dismissals.
 
 Not yet implemented:
 
-* PSP notification card overlay popups
+* Desktop GUI configurations settings page
 * message processing
 * session management
 
@@ -176,10 +175,12 @@ Implemented:
 * Client-side notification ticker display
 * Companion settings TUI and INI configuration parsing
 * Remote console reboot and shutdown routines
+* Visual popup overlay cards and auto-hide display timers
+* Scrolling notification history cache and drawer interface
 
 Not Yet Implemented:
 
-* PSP notification card overlay popups
+* Desktop GUI configurations settings page
 
 ---
 
@@ -205,7 +206,7 @@ Real USB transport communication between Windows/WSL and PPSSPP is not emulated;
 
 # Next Task
 
-Milestone 11 — PSP Notification Card Overlay Popups.
+Milestone 12 — Desktop Companion GUI App.
 
 ---
 
