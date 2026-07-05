@@ -2,8 +2,8 @@
 #include <pspdebug.h>
 #include <pspctrl.h>
 
-PSP_MODULE_INFO("PSPDevLink", 0x0000, 1, 0);
-PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER | THREAD_ATTR_VFPU);
+PSP_MODULE_INFO("PSPDevLink", 0x1000, 1, 0);
+PSP_MAIN_THREAD_ATTR(THREAD_ATTR_VFPU);
 
 int exit_callback(int arg1, int arg2, void *common)
 {
