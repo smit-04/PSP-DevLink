@@ -48,6 +48,9 @@ typedef enum
     STATE_CONNECTED
 } ConnectionState;
 
+char g_status_msg[128] = "Initializing USB...";
+
+
 int main(void)
 {
     setup_callbacks();

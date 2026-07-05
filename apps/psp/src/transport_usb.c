@@ -34,6 +34,8 @@ extern int pspdl_usb_send(const void *data, int size);
 extern int pspdl_usb_recv(void *buf, int size, int *received);
 extern int pspdl_usb_shutdown(void);
 
+extern char g_status_msg[128];
+
 PSPDL_TransportResult transport_initialize(void)
 {
     g_mock_mode = 0;
@@ -43,8 +45,7 @@ PSPDL_TransportResult transport_initialize(void)
     g_driver_mod = sceKernelLoadModule(PRX_PATH, 0, NULL);
     if (g_driver_mod < 0)
     {
-        pspDebugScreenPrintf("[WARN] Failed to load pspdl_driver.prx (0x%08X).\n", g_driver_mod);
-        pspDebugScreenPrintf("[WARN] Falling back to Mock/Demo Mode.\n");
+        snprintf(g_status_msg, sizeof(g_status_msg), "PRX load fail (0x%08X). Mock Mode.", (unsigned int)g_driver_mod);
         g_mock_mode = 1;
         return PSPDL_TRANSPORT_OK;
     }
@@ -53,7 +54,7 @@ PSPDL_TransportResult transport_initialize(void)
     int ret = sceKernelStartModule(g_driver_mod, 0, NULL, &status, NULL);
     if (ret != g_driver_mod)
     {
-        pspDebugScreenPrintf("[WARN] Failed to start pspdl_driver.prx (0x%08X).\n", ret);
+        snprintf(g_status_msg, sizeof(g_status_msg), "PRX start fail (0x%08X). Mock Mode.", (unsigned int)ret);
         sceKernelUnloadModule(g_driver_mod);
         g_driver_mod = -1;
         g_mock_mode = 1;
@@ -64,7 +65,7 @@ PSPDL_TransportResult transport_initialize(void)
     ret = pspdl_usb_init();
     if (ret < 0)
     {
-        pspDebugScreenPrintf("[WARN] Driver init failed (0x%08X). Mock Mode.\n", ret);
+        snprintf(g_status_msg, sizeof(g_status_msg), "USB Register fail (0x%08X). Mock Mode.", (unsigned int)ret);
         pspdl_usb_shutdown();
         sceKernelStopModule(g_driver_mod, 0, NULL, &status, NULL);
         sceKernelUnloadModule(g_driver_mod);
@@ -73,9 +74,10 @@ PSPDL_TransportResult transport_initialize(void)
         return PSPDL_TRANSPORT_OK;
     }
 
-    pspDebugScreenPrintf("[INFO] USB Driver loaded & hardware initialized successfully.\n");
+    snprintf(g_status_msg, sizeof(g_status_msg), "PRX & USB Driver Active.");
     return PSPDL_TRANSPORT_OK;
 }
+
 
 PSPDL_TransportResult transport_shutdown(void)
 {

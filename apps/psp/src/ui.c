@@ -266,6 +266,13 @@ void ui_render(
         pspDebugScreenPrintf("[ SEARCHING FOR HOST... ]  ");
     }
 
+    // Display driver load/USB status on Row 5
+    extern char g_status_msg[128];
+    pspDebugScreenSetXY(2, 5);
+    pspDebugScreenSetTextColor(0xFF888888); // Grey text for status
+    pspDebugScreenPrintf("System Status: %s", g_status_msg);
+
+
     if (s_showing_history)
     {
         // History drawer: no need to clear rows 6-16 separately;
