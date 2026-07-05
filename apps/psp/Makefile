@@ -12,7 +12,7 @@ OBJS = \
 
 PSP_FW_VERSION = 660
 
-LIBS += -lpsppower -lpspusb
+LIBS += -lpsppower -lpspusb -lpspge
 
 CFLAGS = -O2 -G0 -Wall
 CXXFLAGS = $(CFLAGS)

@@ -1,8 +1,18 @@
 #include "ui.h"
 #include <pspdebug.h>
 #include <pspdisplay.h>
+#include <pspge.h>
 #include <stdio.h>
 #include <string.h>
+
+// Double-buffering for flicker-free rendering.
+// PSP VRAM layout: 0x04000000 base, each 512x272 RGBA8888 frame = 0x88000 bytes
+#define DISPLAY_WIDTH   480
+#define DISPLAY_HEIGHT  272
+#define DISPLAY_STRIDE  512   // row stride in pixels (must be power of 2)
+// Frame buffer 0 at VRAM offset 0, frame buffer 1 right after
+static void *g_draw_buf  = (void *)0x04000000; // back buffer  (we draw here)
+static void *g_disp_buf  = (void *)0x04088000; // front buffer (displayed)
 
 static PSPDL_NotificationPayload s_notif_history[5];
 static int s_notif_history_count = 0;
@@ -56,16 +66,8 @@ void ui_add_notification(const PSPDL_NotificationPayload *notif)
 void ui_toggle_history(void)
 {
     s_showing_history = !s_showing_history;
-    
-    // Clear panel area once to prevent menu residues on transition
-    for (int r = 6; r <= 16; r++)
-    {
-        pspDebugScreenSetXY(1, r);
-        for (int c = 1; c <= 64; c++)
-        {
-            pspDebugScreenPrintf(" ");
-        }
-    }
+    // No manual clear needed: next ui_render() call clears the back buffer
+    // at frame start before drawing, so there are no residues.
 }
 
 void ui_close_active_popup(void)
@@ -78,16 +80,7 @@ void ui_clear_history(void)
 {
     memset(s_notif_history, 0, sizeof(s_notif_history));
     s_notif_history_count = 0;
-    
-    // Clear panel area once to remove logs cleanly
-    for (int r = 6; r <= 16; r++)
-    {
-        pspDebugScreenSetXY(1, r);
-        for (int c = 1; c <= 64; c++)
-        {
-            pspDebugScreenPrintf(" ");
-        }
-    }
+    // No manual clear needed: back buffer is wiped at the start of every frame.
 }
 
 void ui_handle_circle_press(void)
@@ -96,16 +89,7 @@ void ui_handle_circle_press(void)
     {
         s_popup_active = 0;
         s_popup_ticks = 0;
-        
-        // Clear panel area once to prevent residues
-        for (int r = 6; r <= 16; r++)
-        {
-            pspDebugScreenSetXY(1, r);
-            for (int c = 1; c <= 64; c++)
-            {
-                pspDebugScreenPrintf(" ");
-            }
-        }
+        // No manual clear needed: frame start clears back buffer each render.
     }
     else if (s_showing_history)
     {
@@ -182,10 +166,16 @@ static void ui_draw_popup(void)
 
 void ui_init(void)
 {
-    // Initialize debug screen system
+    // Set up double buffering:
+    // - Draw buffer (back) at VRAM offset 0x00000
+    // - Display buffer (front) at VRAM offset 0x88000
+    // pspDebugScreenInit() sets the draw target to VRAM base by default.
     pspDebugScreenInit();
+    pspDebugScreenSetOffset(0); // draw to back buffer (offset 0 in VRAM)
 
-    // Set standard colors
+    // Point display hardware at the FRONT buffer initially
+    sceDisplaySetFrameBuf(g_disp_buf, DISPLAY_STRIDE, PSP_DISPLAY_PIXEL_FORMAT_8888, PSP_DISPLAY_SETBUF_NEXTFRAME);
+
     pspDebugScreenSetTextColor(0xFFFFFFFF);
     pspDebugScreenSetBackColor(0xFF000000);
     pspDebugScreenClear();
@@ -232,9 +222,19 @@ void ui_render(
     const PSPDL_GitStatusPayload *git,
     const PSPDL_NotificationPayload *notif)
 {
-    /* ---- vsync: wait for vertical blank so we draw during the off-screen
-            period — this is the standard fix for PSP debug-screen flicker ---- */
-    sceDisplayWaitVblankStart();
+    /* ---- Double-buffer flip ----------------------------------------
+     * 1. Tell pspDebugScreen to render into the BACK buffer (g_draw_buf)
+     * 2. Draw the complete frame
+     * 3. Wait for vblank
+     * 4. Swap: the back buffer becomes the display, the front becomes the
+     *    new back buffer for the next frame
+     * The scan line always reads from the buffer that is fully rendered.
+     * ---------------------------------------------------------------- */
+
+    // Step 1: point debug screen at the back (draw) buffer
+    int draw_offset = (int)((char*)g_draw_buf - (char*)0x04000000);
+    pspDebugScreenSetOffset(draw_offset);
+    pspDebugScreenClear();
 
     /* ===== HEADER ===== */
     pspDebugScreenSetXY(0, 0);
@@ -268,15 +268,8 @@ void ui_render(
 
     if (s_showing_history)
     {
-        // Clear panel area first (rows 6 to 16)
-        for (int r = 6; r <= 16; r++)
-        {
-            pspDebugScreenSetXY(1, r);
-            for (int c = 1; c <= 64; c++)
-            {
-                pspDebugScreenPrintf(" ");
-            }
-        }
+        // History drawer: no need to clear rows 6-16 separately;
+        // pspDebugScreenClear() at frame start already wiped the back buffer.
 
         // Print Header
         pspDebugScreenSetXY(2, 6);
@@ -547,16 +540,17 @@ void ui_render(
         else
         {
             s_popup_active = 0;
-            
-            // Clear panel area once to prevent residues
-            for (int r = 6; r <= 16; r++)
-            {
-                pspDebugScreenSetXY(1, r);
-                for (int c = 1; c <= 64; c++)
-                {
-                    pspDebugScreenPrintf(" ");
-                }
-            }
         }
     }
+
+    /* ---- Step 3+4: wait for vblank then flip buffers ---- */
+    sceDisplayWaitVblankStart();
+
+    // Show the back buffer on screen
+    sceDisplaySetFrameBuf(g_draw_buf, DISPLAY_STRIDE, PSP_DISPLAY_PIXEL_FORMAT_8888, PSP_DISPLAY_SETBUF_NEXTFRAME);
+
+    // Swap: what was the draw buffer becomes the display buffer next frame
+    void *tmp   = g_disp_buf;
+    g_disp_buf  = g_draw_buf;
+    g_draw_buf  = tmp;
 }
