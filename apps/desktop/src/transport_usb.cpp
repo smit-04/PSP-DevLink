@@ -11,8 +11,10 @@
 static libusb_device_handle *g_usb_handle = nullptr;
 static libusb_context *g_usb_ctx = nullptr;
 
-PSPDL_TransportResult transport_initialize(void)
+PSPDL_TransportResult transport_initialize(const char *launch_path)
 {
+    (void)launch_path;
+
     if (g_usb_handle != nullptr)
     {
         return PSPDL_TRANSPORT_OK;

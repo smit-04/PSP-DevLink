@@ -51,7 +51,7 @@ typedef enum
 char g_status_msg[128] = "Initializing USB...";
 
 
-int main(void)
+int main(int argc, char *argv[])
 {
     setup_callbacks();
 
@@ -60,8 +60,10 @@ int main(void)
     sceCtrlSetSamplingCycle(0);
     sceCtrlSetSamplingMode(PSP_CTRL_MODE_DIGITAL);
 
-    // Initialize transport backend
-    PSPDL_TransportResult trans_res = transport_initialize();
+    // Initialize transport backend using our launch path
+    const char *launch_path = (argc > 0 && argv[0] != NULL) ? argv[0] : NULL;
+    PSPDL_TransportResult trans_res = transport_initialize(launch_path);
+
     if (trans_res != PSPDL_TRANSPORT_OK)
     {
         // Fail-safe init if UI framework isn't initialized

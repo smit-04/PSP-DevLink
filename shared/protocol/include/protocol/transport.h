@@ -19,7 +19,8 @@ typedef enum
 
 } PSPDL_TransportResult;
 
-PSPDL_TransportResult transport_initialize(void);
+PSPDL_TransportResult transport_initialize(const char *launch_path);
+
 
 PSPDL_TransportResult transport_shutdown(void);
 

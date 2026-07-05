@@ -36,13 +36,46 @@ extern int pspdl_usb_shutdown(void);
 
 extern char g_status_msg[128];
 
-PSPDL_TransportResult transport_initialize(void)
+PSPDL_TransportResult transport_initialize(const char *launch_path)
 {
     g_mock_mode = 0;
     g_mock_buffer_size = 0;
 
+    char resolved_prx_path[256];
+    if (launch_path != NULL && strlen(launch_path) > 0)
+    {
+        size_t len = strlen(launch_path);
+        size_t last_slash = len;
+        // Find the directory part (locate last slash)
+        for (size_t i = len; i > 0; i--)
+        {
+            if (launch_path[i - 1] == '/' || launch_path[i - 1] == '\\')
+            {
+                last_slash = i - 1;
+                break;
+            }
+        }
+
+        if (last_slash < len && last_slash < (sizeof(resolved_prx_path) - 20))
+        {
+            strncpy(resolved_prx_path, launch_path, last_slash + 1);
+            resolved_prx_path[last_slash + 1] = '\0';
+            strcat(resolved_prx_path, "pspdl_driver.prx");
+        }
+        else
+        {
+            strncpy(resolved_prx_path, PRX_PATH, sizeof(resolved_prx_path) - 1);
+            resolved_prx_path[sizeof(resolved_prx_path) - 1] = '\0';
+        }
+    }
+    else
+    {
+        strncpy(resolved_prx_path, PRX_PATH, sizeof(resolved_prx_path) - 1);
+        resolved_prx_path[sizeof(resolved_prx_path) - 1] = '\0';
+    }
+
     // Load kernel PRX from memory stick at runtime
-    g_driver_mod = sceKernelLoadModule(PRX_PATH, 0, NULL);
+    g_driver_mod = sceKernelLoadModule(resolved_prx_path, 0, NULL);
     if (g_driver_mod < 0)
     {
         snprintf(g_status_msg, sizeof(g_status_msg), "PRX load fail (0x%08X). Mock Mode.", (unsigned int)g_driver_mod);
@@ -77,6 +110,7 @@ PSPDL_TransportResult transport_initialize(void)
     snprintf(g_status_msg, sizeof(g_status_msg), "PRX & USB Driver Active.");
     return PSPDL_TRANSPORT_OK;
 }
+
 
 
 PSPDL_TransportResult transport_shutdown(void)

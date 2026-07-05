@@ -99,7 +99,8 @@ int main()
             http_server.update_connection_state("DISCONNECTED");
             std::cout << "[INFO] Searching for PSP DevLink device..." << std::endl;
             
-            if (transport_initialize() == PSPDL_TRANSPORT_OK)
+            if (transport_initialize(nullptr) == PSPDL_TRANSPORT_OK)
+
             {
                 std::cout << "[INFO] PSP Connected. Initiating Handshake..." << std::endl;
                 http_server.update_connection_state("HANDSHAKING");
