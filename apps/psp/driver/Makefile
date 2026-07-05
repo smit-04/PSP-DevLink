@@ -6,9 +6,9 @@ BUILD_PRX = 1
 # Attribute 0x1000 required for kernel loading (no main thread, just library)
 MODINFO_FLAGS = 0x1006
 
-# Link standard kernel stubs for loadmodule, event flags, etc.
-LIBS = -lpspkernel
-
+# Use kernel driver libraries instead of user-mode libraries
+USE_KERNEL_LIBS = 1
+LIBS = 
 
 
 # Use the PRX exports/import tables generation tools

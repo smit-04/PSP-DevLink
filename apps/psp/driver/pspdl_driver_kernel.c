@@ -440,7 +440,16 @@ int pspdl_usb_shutdown(void)
 
 /* Exported API functions only. The toolchain crt0_prx.o automatically implements module_start/stop. */
 
-int main(int argc, char *argv[])
+int module_start(SceSize args, void *argp)
 {
+    (void)args; (void)argp;
     return 0;
 }
+
+int module_stop(SceSize args, void *argp)
+{
+    (void)args; (void)argp;
+    pspdl_usb_shutdown();
+    return 0;
+}
+
