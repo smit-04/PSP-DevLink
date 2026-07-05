@@ -6,8 +6,10 @@ BUILD_PRX = 1
 # Attribute 0x1000 required for kernel loading (no main thread, just library)
 MODINFO_FLAGS = 0x1006
 
-# Only link driver-level stubs
-LIBS = -lpspusbbus_driver -lpspusb_driver
+# Link standard kernel stubs for loadmodule, event flags, etc.
+LIBS = -lpspkernel
+
+
 
 # Use the PRX exports/import tables generation tools
 PRX_EXPORTS = pspdl_driver.exp
