@@ -1,0 +1,17 @@
+PSP_BEGIN_EXPORTS
+
+# Mandatory syslib exports
+PSP_EXPORT_START(syslib, 0, 0x8000)
+PSP_EXPORT_FUNC_HASH(module_start)
+PSP_EXPORT_VAR_HASH(module_info)
+PSP_EXPORT_END
+
+# PSP DevLink custom exports
+PSP_EXPORT_START(pspdl_driver, 0, 0x0001)
+PSP_EXPORT_FUNC_HASH(pspdl_usb_init)
+PSP_EXPORT_FUNC_HASH(pspdl_usb_send)
+PSP_EXPORT_FUNC_HASH(pspdl_usb_recv)
+PSP_EXPORT_FUNC_HASH(pspdl_usb_shutdown)
+PSP_EXPORT_END
+
+PSP_END_EXPORTS
