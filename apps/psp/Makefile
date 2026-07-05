@@ -8,11 +8,11 @@ OBJS = \
     src/message_router.o \
     src/ui.o
 
-BUILD_PRX = 1
+# User-mode static ELF - no BUILD_PRX needed, CFW 6.60 PRO-B9 supports this natively
 
 PSP_FW_VERSION = 660
 
-LIBS += -lpsppower -lpspkernel
+LIBS += -lpsppower -lpspusb
 
 CFLAGS = -O2 -G0 -Wall
 CXXFLAGS = $(CFLAGS)
