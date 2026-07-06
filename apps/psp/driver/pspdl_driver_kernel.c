@@ -440,9 +440,27 @@ int pspdl_usb_shutdown(void)
 
 /* Exported API functions only. The toolchain crt0_prx.o automatically implements module_start/stop. */
 
+struct UsbBridge {
+    int (*init)(void);
+    int (*send)(const void *data, int size);
+    int (*recv)(void *buf, int size, int *received);
+    int (*shutdown)(void);
+};
+
 int module_start(SceSize args, void *argp)
 {
-    (void)args; (void)argp;
+    if (args >= sizeof(void *) && argp != NULL)
+    {
+        struct UsbBridge **p_user_bridge = (struct UsbBridge **)argp;
+        if (p_user_bridge != NULL && *p_user_bridge != NULL)
+        {
+            struct UsbBridge *bridge = *p_user_bridge;
+            bridge->init = pspdl_usb_init;
+            bridge->send = pspdl_usb_send;
+            bridge->recv = pspdl_usb_recv;
+            bridge->shutdown = pspdl_usb_shutdown;
+        }
+    }
     return 0;
 }
 
@@ -452,4 +470,5 @@ int module_stop(SceSize args, void *argp)
     pspdl_usb_shutdown();
     return 0;
 }
+
 
