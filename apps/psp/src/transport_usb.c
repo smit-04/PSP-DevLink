@@ -73,6 +73,23 @@ PSPDL_TransportResult transport_initialize(const char *launch_path)
         resolved_prx_path[sizeof(resolved_prx_path) - 1] = '\0';
     }
 
+    // Load system USB modules from flash0 first. This ensures our driver's static imports
+    // (from libpspusb_driver.a and libpspusbbus_driver.a) are successfully resolved by the OS loader.
+    // If they are already loaded, these calls will return negative error codes (e.g. 0x80020139), which we safely ignore.
+    SceUID usb_mod = sceKernelLoadModule("flash0:/kd/usb.prx", 0, NULL);
+    if (usb_mod >= 0)
+    {
+        int status = 0;
+        sceKernelStartModule(usb_mod, 0, NULL, &status, NULL);
+    }
+
+    SceUID usbbd_mod = sceKernelLoadModule("flash0:/kd/usbbd.prx", 0, NULL);
+    if (usbbd_mod >= 0)
+    {
+        int status = 0;
+        sceKernelStartModule(usbbd_mod, 0, NULL, &status, NULL);
+    }
+
     // Load kernel PRX from memory stick at runtime
     g_driver_mod = sceKernelLoadModule(resolved_prx_path, 0, NULL);
     if (g_driver_mod < 0)

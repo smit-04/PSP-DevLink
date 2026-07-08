@@ -2,8 +2,8 @@
  * PSP DevLink — Kernel USB Bulk Transfer Driver
  *
  * This is a kernel-mode PRX loaded at runtime by the user-mode EBOOT.
- * It uses dynamic NID resolution in kernel space to bypass load-time dependencies,
- * avoiding the 0x8002013C load error on older PSP CFWs.
+ * It links directly against the kernel import libraries to interact with
+ * the hardware USB bus.
  */
 
 #include <pspkernel.h>
@@ -22,35 +22,12 @@ PSP_MODULE_INFO("pspdl_driver", PSP_MODULE_KERNEL, 1, 0);
 #define EVT_BULKIN_DONE   (1 << 0)   /* send complete  */
 #define EVT_BULKOUT_DONE  (1 << 1)   /* receive ready  */
 
-/* ---- Function pointers for dynamic USB stubs ---- */
-typedef int (*sceUsbbdRegister_t)(struct UsbDriver *driver);
-typedef int (*sceUsbbdUnregister_t)(struct UsbDriver *driver);
-typedef int (*sceUsbbdReqSend_t)(struct UsbdDeviceReq *req);
-typedef int (*sceUsbbdReqRecv_t)(struct UsbdDeviceReq *req);
-typedef int (*sceUsbbdReqCancelAll_t)(struct UsbEndpoint *endp);
-
-typedef int (*sceUsbStart_t)(const char *driverName, int size, void *args);
-typedef int (*sceUsbStop_t)(const char *driverName, int size, void *args);
-typedef int (*sceUsbActivate_t)(int pid);
-typedef int (*sceUsbDeactivate_t)(int pid);
-
-static sceUsbbdRegister_t p_sceUsbbdRegister = NULL;
-static sceUsbbdUnregister_t p_sceUsbbdUnregister = NULL;
-static sceUsbbdReqSend_t p_sceUsbbdReqSend = NULL;
-static sceUsbbdReqRecv_t p_sceUsbbdReqRecv = NULL;
-static sceUsbbdReqCancelAll_t p_sceUsbbdReqCancelAll = NULL;
-
-static sceUsbStart_t p_sceUsbStart = NULL;
-static sceUsbStop_t p_sceUsbStop = NULL;
-static sceUsbActivate_t p_sceUsbActivate = NULL;
-static sceUsbDeactivate_t p_sceUsbDeactivate = NULL;
-
 /* ---- Transfer state ---- */
 static SceUID g_event = -1;
 static int    g_read_queued = 0;
 static int    g_usb_running = 0;
 
-/* Aligned DMA buffers (64-byte alignment required by PSP GE DMA) */
+/* Aligned DMA buffers (64-byte alignment required by PSP hardware) */
 static unsigned char g_tx_buf[8192] __attribute__((aligned(64)));
 static unsigned char g_rx_buf[8192] __attribute__((aligned(64)));
 
@@ -230,50 +207,6 @@ static struct UsbDriver g_driver = {
     NULL,
 };
 
-/* ---- Helper to load modules dynamically ---- */
-static int LoadStartModule(const char *path)
-{
-    u32 loadResult = sceKernelLoadModule(path, 0, NULL);
-    if (loadResult & 0x80000000)
-        return -1;
-    
-    int status = 0;
-    u32 startResult = sceKernelStartModule(loadResult, 0, NULL, &status, NULL);
-    if (loadResult != startResult)
-        return -2;
-    
-    return 0;
-}
-
-/* ---- Dynamic NID resolution in kernel space ---- */
-static void* find_export_by_nid(const char* mod_name, u32 nid)
-{
-    SceModule *mod = sceKernelFindModuleByName(mod_name);
-    if (!mod) return NULL;
-
-    unsigned char *ent_top = (unsigned char *)mod->ent_top;
-    unsigned int ent_size = mod->ent_size;
-    unsigned int i = 0;
-
-    while (i < ent_size) {
-        SceLibraryEntryTable *entry = (SceLibraryEntryTable *)(ent_top + i);
-        if (entry->len == 0) break;
-
-        unsigned int *entry_table = (unsigned int *)entry->entrytable;
-        if (entry_table) {
-            int func_count = entry->stubcount;
-            int var_count = entry->vstubcount;
-            for (int f = 0; f < func_count; f++) {
-                if (entry_table[f] == nid) {
-                    return (void *)entry_table[func_count + var_count + f];
-                }
-            }
-        }
-        i += entry->len * 4;
-    }
-    return NULL;
-}
-
 /* ---- Transfer completion callbacks ---- */
 
 static int bulkin_done(struct UsbdDeviceReq *req, int arg2, int arg3)
@@ -289,7 +222,7 @@ static int bulkout_done(struct UsbdDeviceReq *req, int arg2, int arg3)
 }
 
 /* ======================================================================
- * Exported API — called from user-mode EBOOT via generated stubs
+ * Exported API — called from user-mode EBOOT via pointer bridge
  * ====================================================================== */
 
 int pspdl_usb_init(void)
@@ -297,44 +230,25 @@ int pspdl_usb_init(void)
     if (g_usb_running)
         return 0;
 
-    // 1. Load USB system modules dynamically
-    LoadStartModule("flash0:/kd/usb.prx");
-    LoadStartModule("flash0:/kd/usbbd.prx");
-
-    // 2. Resolve USB APIs dynamically to avoid static link dependencies
-    p_sceUsbStart = (sceUsbStart_t)find_export_by_nid("sceUSB_Service", 0xAE5DEB97);
-    p_sceUsbStop = (sceUsbStop_t)find_export_by_nid("sceUSB_Service", 0x3C2007C0);
-    p_sceUsbActivate = (sceUsbActivate_t)find_export_by_nid("sceUSB_Service", 0x586205D8);
-    p_sceUsbDeactivate = (sceUsbDeactivate_t)find_export_by_nid("sceUSB_Service", 0x959E6A1E);
-
-    p_sceUsbbdRegister = (sceUsbbdRegister_t)find_export_by_nid("sceUsbBusDriver", 0x5C2AE2C4);
-    p_sceUsbbdUnregister = (sceUsbbdUnregister_t)find_export_by_nid("sceUsbBusDriver", 0xD94541CE);
-    p_sceUsbbdReqSend = (sceUsbbdReqSend_t)find_export_by_nid("sceUsbBusDriver", 0xC5266858);
-    p_sceUsbbdReqRecv = (sceUsbbdReqRecv_t)find_export_by_nid("sceUsbBusDriver", 0xF349CD03);
-    p_sceUsbbdReqCancelAll = (sceUsbbdReqCancelAll_t)find_export_by_nid("sceUsbBusDriver", 0x83B367BF);
-
-    if (!p_sceUsbStart || !p_sceUsbActivate || !p_sceUsbbdRegister || !p_sceUsbbdReqSend || !p_sceUsbbdReqRecv)
-    {
-        return -101; // Resolve failure
-    }
-
     g_read_queued = 0;
 
     g_event = sceKernelCreateEventFlag("pspdl_evt", 0, 0, NULL);
     if (g_event < 0)
         return g_event;
 
-    int ret = p_sceUsbbdRegister(&g_driver);
+    // Register our USB driver with the USB bus manager
+    int ret = sceUsbbdRegister(&g_driver);
     if (ret < 0) { sceKernelDeleteEventFlag(g_event); g_event = -1; return ret; }
 
-    ret = p_sceUsbStart(PSP_USBBUS_DRIVERNAME, 0, 0);
-    if (ret != 0) { p_sceUsbbdUnregister(&g_driver); sceKernelDeleteEventFlag(g_event); g_event = -1; return ret; }
+    // Start the USB driver interface
+    ret = sceUsbStart(PSP_USBBUS_DRIVERNAME, 0, 0);
+    if (ret != 0) { sceUsbbdUnregister(&g_driver); sceKernelDeleteEventFlag(g_event); g_event = -1; return ret; }
 
-    ret = p_sceUsbStart(DRIVER_NAME, 0, 0);
-    if (ret != 0) { p_sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0); p_sceUsbbdUnregister(&g_driver); sceKernelDeleteEventFlag(g_event); g_event = -1; return ret; }
+    ret = sceUsbStart(DRIVER_NAME, 0, 0);
+    if (ret != 0) { sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0); sceUsbbdUnregister(&g_driver); sceKernelDeleteEventFlag(g_event); g_event = -1; return ret; }
 
-    ret = p_sceUsbActivate(PSPDL_USB_PRODUCT_ID);
-    if (ret != 0) { p_sceUsbStop(DRIVER_NAME, 0, 0); p_sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0); p_sceUsbbdUnregister(&g_driver); sceKernelDeleteEventFlag(g_event); g_event = -1; return ret; }
+    ret = sceUsbActivate(PSPDL_USB_PRODUCT_ID);
+    if (ret != 0) { sceUsbStop(DRIVER_NAME, 0, 0); sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0); sceUsbbdUnregister(&g_driver); sceKernelDeleteEventFlag(g_event); g_event = -1; return ret; }
 
     g_usb_running = 1;
     return 0;
@@ -342,7 +256,7 @@ int pspdl_usb_init(void)
 
 int pspdl_usb_send(const void *data, int size)
 {
-    if (!g_usb_running || g_event < 0 || !p_sceUsbbdReqSend || !p_sceUsbbdReqCancelAll)
+    if (!g_usb_running || g_event < 0)
         return -1;
 
     /* Copy to aligned TX buffer */
@@ -357,7 +271,7 @@ int pspdl_usb_send(const void *data, int size)
     g_bulkin_req.func    = bulkin_done;
 
     sceKernelClearEventFlag(g_event, ~EVT_BULKIN_DONE);
-    int ret = p_sceUsbbdReqSend(&g_bulkin_req);
+    int ret = sceUsbbdReqSend(&g_bulkin_req);
     if (ret < 0) return ret;
 
     SceUInt timeout = 200000; /* 200 ms */
@@ -365,7 +279,7 @@ int pspdl_usb_send(const void *data, int size)
     ret = sceKernelWaitEventFlag(g_event, EVT_BULKIN_DONE,
                                   PSP_EVENT_WAITOR | PSP_EVENT_WAITCLEAR,
                                   &result, &timeout);
-    if (ret < 0) { p_sceUsbbdReqCancelAll(&g_endpoints[1]); return ret; }
+    if (ret < 0) { sceUsbbdReqCancelAll(&g_endpoints[1]); return ret; }
     if (g_bulkin_req.retcode != 0) return -1;
 
     return g_bulkin_req.recvsize;
@@ -373,7 +287,7 @@ int pspdl_usb_send(const void *data, int size)
 
 int pspdl_usb_recv(void *buf, int size, int *received)
 {
-    if (!g_usb_running || g_event < 0 || !p_sceUsbbdReqRecv)
+    if (!g_usb_running || g_event < 0)
         return -1;
 
     if (received) *received = 0;
@@ -390,7 +304,7 @@ int pspdl_usb_recv(void *buf, int size, int *received)
         g_bulkout_req.func = bulkout_done;
 
         sceKernelClearEventFlag(g_event, ~EVT_BULKOUT_DONE);
-        int ret = p_sceUsbbdReqRecv(&g_bulkout_req);
+        int ret = sceUsbbdReqRecv(&g_bulkout_req);
         if (ret < 0) return ret;
         g_read_queued = 1;
     }
@@ -422,15 +336,13 @@ int pspdl_usb_shutdown(void)
     if (!g_usb_running)
         return 0;
 
-    if (p_sceUsbbdReqCancelAll)
-    {
-        p_sceUsbbdReqCancelAll(&g_endpoints[1]);
-        p_sceUsbbdReqCancelAll(&g_endpoints[2]);
-    }
-    if (p_sceUsbDeactivate) p_sceUsbDeactivate(PSPDL_USB_PRODUCT_ID);
-    if (p_sceUsbStop) p_sceUsbStop(DRIVER_NAME, 0, 0);
-    if (p_sceUsbStop) p_sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0);
-    if (p_sceUsbbdUnregister) p_sceUsbbdUnregister(&g_driver);
+    sceUsbbdReqCancelAll(&g_endpoints[1]);
+    sceUsbbdReqCancelAll(&g_endpoints[2]);
+    
+    sceUsbDeactivate(PSPDL_USB_PRODUCT_ID);
+    sceUsbStop(DRIVER_NAME, 0, 0);
+    sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0);
+    sceUsbbdUnregister(&g_driver);
 
     if (g_event >= 0) { sceKernelDeleteEventFlag(g_event); g_event = -1; }
     g_usb_running  = 0;
@@ -438,8 +350,7 @@ int pspdl_usb_shutdown(void)
     return 0;
 }
 
-/* Exported API functions only. The toolchain crt0_prx.o automatically implements module_start/stop. */
-
+/* Struct for user-mode EBOOT bridge */
 struct UsbBridge {
     int (*init)(void);
     int (*send)(const void *data, int size);
@@ -470,5 +381,3 @@ int module_stop(SceSize args, void *argp)
     pspdl_usb_shutdown();
     return 0;
 }
-
-
