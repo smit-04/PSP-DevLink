@@ -1,0 +1,44 @@
+# Binary files - must not be modified by Git line-ending conversion
+*.PBP binary
+*.pbp binary
+*.prx binary
+*.elf binary
+*.o binary
+*.a binary
+*.png binary
+*.ico binary
+*.bmp binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.exe binary
+*.dll binary
+*.lib binary
+*.so binary
+
+# Source code - normalize to LF in repo, convert to native on checkout
+*.c text eol=lf
+*.h text eol=lf
+*.cpp text eol=lf
+*.hpp text eol=lf
+*.cc text eol=lf
+*.hh text eol=lf
+*.cxx text eol=lf
+*.hxx text eol=lf
+
+# Build files
+Makefile text eol=lf
+*.mk text eol=lf
+*.sh text eol=lf
+*.exp text eol=lf
+
+# Documentation
+*.md text eol=lf
+*.txt text eol=lf
+
+# Config
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.cmake text eol=lf
+CMakeLists.txt text eol=lf

@@ -1,7 +1,6 @@
 #include "ui.h"
 #include <pspdebug.h>
 #include <pspdisplay.h>
-#include <pspge.h>
 #include <stdio.h>
 #include <string.h>
 
