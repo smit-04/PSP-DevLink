@@ -261,6 +261,22 @@ Transport implementations are inherently platform-specific and should not reside
 
 Separating the transport interface from its implementations preserves protocol independence, prevents platform-specific code from entering shared components, improves maintainability, and allows additional transport backends to be introduced without modifying the shared communication interfaces.
 
+# ADR-014
+
+Title
+
+USB Kernel PRX Architecture and Hardware Compatibility
+
+Decision
+
+The PSP application shall use a dedicated Kernel-Mode Driver (PRX) to handle raw USB bulk transfers directly via the internal `sceUsbBusDriver` subsystem. The driver will statically link to kernel USB imports and avoid dynamic NID resolution. 
+
+The project will deliberately avoid `sceNet` modules and socket-based networking paradigms.
+
+Reason
+
+Bypassing standard networking modules (and their associated dependencies inside `libcglue`) ensures compatibility with the PSP E-1000 ("Street") hardware series, which lacks WiFi capabilities and rejects EBOOTs that import unresolvable network stubs (resulting in "corrupted data" errors). Utilizing static kernel imports avoids the severe instability and kernel panics associated with dynamically parsing memory structures for NIDs across varying custom firmware versions.
+
 ---
 
 End of Document
