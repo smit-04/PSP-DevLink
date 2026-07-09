@@ -79,7 +79,7 @@ PSPDL_TransportResult transport_initialize(const char *launch_path)
 
     // Start USB hardware and activate our driver on the bus
     int usb_start_bus = sceUsbStart(PSP_USBBUS_DRIVERNAME, 0, 0);
-    int usb_start_drv = sceUsbStart("PSPDevLink", 0, 0);
+    int usb_start_drv = sceUsbStart("USBCamDriver", 0, 0);
     int usb_act = sceUsbActivate(0x011A); // Use the custom PID we registered (0x011A)
 
     if (usb_start_bus < 0 || usb_start_drv < 0 || usb_act < 0)

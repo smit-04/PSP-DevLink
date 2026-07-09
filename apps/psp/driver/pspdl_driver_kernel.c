@@ -218,7 +218,7 @@ static int pspdl_usb_init(void)
     g_usb_data.interdesc.pendp = &g_usb_data.endp[0];
 
     // Configure g_driver
-    g_driver.name = "PSPDevLink";
+    g_driver.name = "USBCamDriver";
     g_driver.endpoints = 2;
     g_driver.endp = g_eps;
     g_driver.intp = &g_interface;
