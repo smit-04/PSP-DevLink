@@ -19,7 +19,11 @@ PSP_MODULE_INFO("pspdl_driver", PSP_MODULE_KERNEL, 1, 0);
 static struct UsbEndpoint g_eps[2];
 static struct UsbInterface g_interface;
 static struct UsbInterfaces g_interfaces;
-static struct StringDescriptor g_str_desc;
+static struct StringDescriptor g_str_desc[3] = {
+    { 4, 3, { 0x0409 } },
+    { 24, 3, { 'P', 'S', 'P', ' ', 'D', 'e', 'v', 'e', 'l', 'o', 'p' } },
+    { 22, 3, { 'P', 'S', 'P', 'D', 'e', 'v', 'L', 'i', 'n', 'k' } }
+};
 static struct UsbDriver g_driver;
 
 static int g_is_initialized = 0;
@@ -132,7 +136,6 @@ static int pspdl_usb_init(void)
     memset(&g_eps, 0, sizeof(g_eps));
     memset(&g_interface, 0, sizeof(g_interface));
     memset(&g_interfaces, 0, sizeof(g_interfaces));
-    memset(&g_str_desc, 0, sizeof(g_str_desc));
     memset(&g_driver, 0, sizeof(g_driver));
     memset(&g_usb_data, 0, sizeof(g_usb_data));
 
@@ -142,14 +145,6 @@ static int pspdl_usb_init(void)
 
     g_interface.expect_interface = -1;
     g_interface.num_interface = 1;
-
-    // String Descriptor
-    g_str_desc.bLength = 22;
-    g_str_desc.bDescriptorType = 3;
-    const char *name = "PSPDevLink";
-    for(int i = 0; i < 10; i++) g_str_desc.bString[i] = name[i];
-
-    // Build the Device Descriptor (g_usb_data.devdesc)
     struct DeviceDescriptor *dev = (struct DeviceDescriptor *)g_usb_data.devdesc;
     dev->bLength = 18;
     dev->bDescriptorType = 1; // Device
@@ -218,7 +213,7 @@ static int pspdl_usb_init(void)
     g_usb_data.interdesc.pendp = &g_usb_data.endp[0];
 
     // Configure g_driver
-    g_driver.name = "USBCamDriver";
+    g_driver.name = "PSPDevLinkDriver";
     g_driver.endpoints = 2;
     g_driver.endp = g_eps;
     g_driver.intp = &g_interface;
@@ -226,7 +221,7 @@ static int pspdl_usb_init(void)
     g_driver.confp_hi = &g_usb_data.config;
     g_driver.devp = dev;
     g_driver.confp = &g_usb_data.config;
-    g_driver.str = &g_str_desc;
+    g_driver.str = &g_str_desc[0];
     g_driver.attach = usb_attach;
     g_driver.detach = usb_detach;
     g_driver.start_func = usb_start_func;
