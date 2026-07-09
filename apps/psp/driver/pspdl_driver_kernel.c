@@ -122,39 +122,110 @@ static int usb_stop_func(int size, void *args)
     return 0;
 }
 
+// USB Descriptors and padding structure (Required by sceUsbBusDriver)
+static struct UsbData g_usb_data __attribute__((aligned(64)));
+
 static int pspdl_usb_init(void)
 {
-    if (g_is_initialized)
-    {
-        return 0;
-    }
+    if (g_is_initialized) return 0;
 
     memset(&g_eps, 0, sizeof(g_eps));
     memset(&g_interface, 0, sizeof(g_interface));
     memset(&g_interfaces, 0, sizeof(g_interfaces));
     memset(&g_str_desc, 0, sizeof(g_str_desc));
     memset(&g_driver, 0, sizeof(g_driver));
+    memset(&g_usb_data, 0, sizeof(g_usb_data));
 
+    // Endpoints
     g_eps[0].endpnum = EP_IN;
     g_eps[1].endpnum = EP_OUT;
 
     g_interface.expect_interface = -1;
     g_interface.num_interface = 1;
 
+    // String Descriptor
     g_str_desc.bLength = 22;
     g_str_desc.bDescriptorType = 3;
-    // Copy wide-char string
     const char *name = "PSPDevLink";
-    for(int i=0; i<10; i++) g_str_desc.bString[i] = name[i];
+    for(int i = 0; i < 10; i++) g_str_desc.bString[i] = name[i];
 
+    // Build the Device Descriptor (g_usb_data.devdesc)
+    struct DeviceDescriptor *dev = (struct DeviceDescriptor *)g_usb_data.devdesc;
+    dev->bLength = 18;
+    dev->bDescriptorType = 1; // Device
+    dev->bcdUSB = 0x0200; // USB 2.0
+    dev->bDeviceClass = 0xFF; // Vendor specific
+    dev->bDeviceSubClass = 0xFF;
+    dev->bDeviceProtocol = 0xFF;
+    dev->bMaxPacketSize = 64;
+    dev->idVendor = PSPDL_USB_VID;
+    dev->idProduct = PSPDL_USB_PID;
+    dev->bcdDevice = 0x0100;
+    dev->iManufacturer = 0;
+    dev->iProduct = 1;
+    dev->iSerialNumber = 0;
+    dev->bNumConfigurations = 1;
+
+    // Build the Configuration Descriptor
+    struct ConfigDescriptor *conf = (struct ConfigDescriptor *)g_usb_data.confdesc.desc;
+    conf->bLength = 9;
+    conf->bDescriptorType = 2; // Configuration
+    conf->wTotalLength = 9 + 9 + 7 + 7; // Config(9) + Interface(9) + 2*Endpoint(7)
+    conf->bNumInterfaces = 1;
+    conf->bConfigurationValue = 1;
+    conf->iConfiguration = 0;
+    conf->bmAttributes = 0xC0; // Self-powered
+    conf->bMaxPower = 0;
+
+    // Build the Interface Descriptor
+    struct InterfaceDescriptor *inf = (struct InterfaceDescriptor *)g_usb_data.interdesc.desc;
+    inf->bLength = 9;
+    inf->bDescriptorType = 4; // Interface
+    inf->bInterfaceNumber = 0;
+    inf->bAlternateSetting = 0;
+    inf->bNumEndpoints = 2;
+    inf->bInterfaceClass = 0xFF;
+    inf->bInterfaceSubClass = 0xFF;
+    inf->bInterfaceProtocol = 0xFF;
+    inf->iInterface = 0;
+
+    // Build Endpoint Descriptors
+    struct EndpointDescriptor *ep_in = (struct EndpointDescriptor *)g_usb_data.endp[0].desc;
+    ep_in->bLength = 7;
+    ep_in->bDescriptorType = 5; // Endpoint
+    ep_in->bEndpointAddress = 0x80 | EP_IN; // IN
+    ep_in->bmAttributes = 2; // Bulk
+    ep_in->wMaxPacketSize = 64;
+    ep_in->bInterval = 0;
+
+    struct EndpointDescriptor *ep_out = (struct EndpointDescriptor *)g_usb_data.endp[1].desc;
+    ep_out->bLength = 7;
+    ep_out->bDescriptorType = 5; // Endpoint
+    ep_out->bEndpointAddress = EP_OUT; // OUT
+    ep_out->bmAttributes = 2; // Bulk
+    ep_out->wMaxPacketSize = 64;
+    ep_out->bInterval = 0;
+
+    // Link everything up in the UsbData structure
+    g_usb_data.config.pconfdesc = conf;
+    g_usb_data.config.pinterfaces = &g_usb_data.interfaces;
+    g_usb_data.config.pinterdesc = &g_usb_data.interdesc;
+    g_usb_data.config.pendp = &g_usb_data.endp[0];
+    
+    g_usb_data.confdesc.pinterfaces = &g_usb_data.interfaces;
+    g_usb_data.interfaces.pinterdesc[0] = &g_usb_data.interdesc;
+    g_usb_data.interfaces.intcount = 1;
+    g_usb_data.interdesc.pendp = &g_usb_data.endp[0];
+
+    // Configure g_driver
     g_driver.name = "PSPDevLink";
     g_driver.endpoints = 2;
     g_driver.endp = g_eps;
     g_driver.intp = &g_interface;
-    g_driver.devp_hi = NULL;
-    g_driver.confp_hi = NULL;
-    g_driver.devp = NULL;
-    g_driver.confp = NULL;
+    g_driver.devp_hi = dev;
+    g_driver.confp_hi = &g_usb_data.config;
+    g_driver.devp = dev;
+    g_driver.confp = &g_usb_data.config;
     g_driver.str = &g_str_desc;
     g_driver.attach = usb_attach;
     g_driver.detach = usb_detach;
@@ -212,6 +283,12 @@ static int pspdl_usb_shutdown(void)
     {
         if (g_usb_driver_registered)
         {
+            // Safely cancel pending USB operations and clear FIFOs to prevent kernel panics
+            sceUsbbdReqCancelAll(&g_eps[0]);
+            sceUsbbdReqCancelAll(&g_eps[1]);
+            sceUsbbdClearFIFO(&g_eps[0]);
+            sceUsbbdClearFIFO(&g_eps[1]);
+            
             sceUsbbdUnregister(&g_driver);
             g_usb_driver_registered = 0;
         }

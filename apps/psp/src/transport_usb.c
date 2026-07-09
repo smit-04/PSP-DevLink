@@ -57,6 +57,7 @@ PSPDL_TransportResult transport_initialize(const char *launch_path)
         return PSPDL_TRANSPORT_OK;
     }
 
+    snprintf(g_status_msg, sizeof(g_status_msg), "Waiting for Host...");
     return PSPDL_TRANSPORT_OK;
 }
 
