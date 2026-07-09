@@ -78,11 +78,19 @@ PSPDL_TransportResult transport_initialize(const char *launch_path)
     }
 
     // Start USB hardware and activate our driver on the bus
-    sceUsbStart(PSP_USBBUS_DRIVERNAME, 0, 0);
-    sceUsbStart("PSPDevLink", 0, 0);
-    sceUsbActivate(0x011A); // Use the custom PID we registered (0x011A)
+    int usb_start_bus = sceUsbStart(PSP_USBBUS_DRIVERNAME, 0, 0);
+    int usb_start_drv = sceUsbStart("PSPDevLink", 0, 0);
+    int usb_act = sceUsbActivate(0x011A); // Use the custom PID we registered (0x011A)
 
-    snprintf(g_status_msg, sizeof(g_status_msg), "Waiting for Host...");
+    if (usb_start_bus < 0 || usb_start_drv < 0 || usb_act < 0)
+    {
+        snprintf(g_status_msg, sizeof(g_status_msg), "USB Start Err (Bus:0x%X, Drv:0x%X, Act:0x%X)", 
+                 (unsigned int)usb_start_bus, (unsigned int)usb_start_drv, (unsigned int)usb_act);
+    }
+    else
+    {
+        snprintf(g_status_msg, sizeof(g_status_msg), "Waiting for Host...");
+    }
     return PSPDL_TRANSPORT_OK;
 }
 
