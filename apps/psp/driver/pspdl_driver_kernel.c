@@ -16,7 +16,7 @@ PSP_MODULE_INFO("pspdl_driver", PSP_MODULE_KERNEL, 1, 0);
 #define EP_IN  1
 #define EP_OUT 2
 
-static struct UsbEndpoint g_eps[2];
+static struct UsbEndpoint g_eps[3];
 static struct UsbInterface g_interface;
 static struct UsbInterfaces g_interfaces;
 static struct StringDescriptor g_str_desc[3] = {
@@ -126,6 +126,16 @@ static int usb_stop_func(int size, void *args)
     return 0;
 }
 
+static int usb_recvctl(int arg1, int arg2, struct DeviceRequest *req)
+{
+    return 0;
+}
+
+static int usb_func28(int arg1, int arg2, int arg3)
+{
+    return 0;
+}
+
 // USB Descriptors and padding structure (Required by sceUsbBusDriver)
 static struct UsbData g_usb_data __attribute__((aligned(64)));
 
@@ -139,9 +149,10 @@ static int pspdl_usb_init(void)
     memset(&g_driver, 0, sizeof(g_driver));
     memset(&g_usb_data, 0, sizeof(g_usb_data));
 
-    // Endpoints
-    g_eps[0].endpnum = EP_IN;
-    g_eps[1].endpnum = EP_OUT;
+    // Endpoints (Must include EP0 control endpoint)
+    g_eps[0].endpnum = 0;
+    g_eps[1].endpnum = EP_IN;
+    g_eps[2].endpnum = EP_OUT;
 
     g_interface.expect_interface = -1;
     g_interface.num_interface = 1;
@@ -214,7 +225,7 @@ static int pspdl_usb_init(void)
 
     // Configure g_driver
     g_driver.name = "PSPDevLinkDriver";
-    g_driver.endpoints = 2;
+    g_driver.endpoints = 3;
     g_driver.endp = g_eps;
     g_driver.intp = &g_interface;
     g_driver.devp_hi = dev;
@@ -222,6 +233,8 @@ static int pspdl_usb_init(void)
     g_driver.devp = dev;
     g_driver.confp = &g_usb_data.config;
     g_driver.str = &g_str_desc[0];
+    g_driver.recvctl = usb_recvctl;
+    g_driver.func28 = usb_func28;
     g_driver.attach = usb_attach;
     g_driver.detach = usb_detach;
     g_driver.start_func = usb_start_func;
@@ -244,7 +257,7 @@ static int pspdl_usb_send(const void *data, int size)
     
     struct UsbdDeviceReq req;
     memset(&req, 0, sizeof(req));
-    req.endp = &g_eps[0]; // EP_IN
+    req.endp = &g_eps[1]; // EP_IN
     req.data = g_tx_buf;
     req.size = size;
 
@@ -259,7 +272,7 @@ static int pspdl_usb_recv(void *buf, int size)
     
     struct UsbdDeviceReq req;
     memset(&req, 0, sizeof(req));
-    req.endp = &g_eps[1]; // EP_OUT
+    req.endp = &g_eps[2]; // EP_OUT
     req.data = g_rx_buf;
     req.size = size;
 
@@ -279,10 +292,10 @@ static int pspdl_usb_shutdown(void)
         if (g_usb_driver_registered)
         {
             // Safely cancel pending USB operations and clear FIFOs to prevent kernel panics
-            sceUsbbdReqCancelAll(&g_eps[0]);
             sceUsbbdReqCancelAll(&g_eps[1]);
-            sceUsbbdClearFIFO(&g_eps[0]);
+            sceUsbbdReqCancelAll(&g_eps[2]);
             sceUsbbdClearFIFO(&g_eps[1]);
+            sceUsbbdClearFIFO(&g_eps[2]);
             
             sceUsbbdUnregister(&g_driver);
             g_usb_driver_registered = 0;
