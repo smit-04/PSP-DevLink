@@ -30,6 +30,26 @@ static unsigned char g_str_desc[] = {
 };
 static struct UsbDriver g_driver;
 
+static struct DeviceDescriptor g_dev_desc = {
+    18, 1, 0x0200, 0xFF, 0xFF, 0xFF, 64, PSPDL_USB_VID, PSPDL_USB_PID, 0x0100, 0, 1, 0, 1
+};
+
+static struct ConfigDescriptor g_conf_desc = {
+    9, 2, 32, 1, 1, 0, 0xC0, 0
+};
+
+static struct InterfaceDescriptor g_int_desc = {
+    9, 4, 0, 0, 2, 0xFF, 0xFF, 0xFF, 0
+};
+
+static struct EndpointDescriptor g_ep_in_desc = {
+    7, 5, 0x80 | EP_IN, 2, 64, 0
+};
+
+static struct EndpointDescriptor g_ep_out_desc = {
+    7, 5, EP_OUT, 2, 64, 0
+};
+
 static int g_is_initialized = 0;
 static int g_usb_driver_registered = 0;
 static int g_usb_driver_started = 0;
@@ -160,64 +180,9 @@ static int pspdl_usb_init(void)
 
     g_interface.expect_interface = -1;
     g_interface.num_interface = 1;
-    struct DeviceDescriptor *dev = (struct DeviceDescriptor *)g_usb_data.devdesc;
-    dev->bLength = 18;
-    dev->bDescriptorType = 1; // Device
-    dev->bcdUSB = 0x0200; // USB 2.0
-    dev->bDeviceClass = 0xFF; // Vendor specific
-    dev->bDeviceSubClass = 0xFF;
-    dev->bDeviceProtocol = 0xFF;
-    dev->bMaxPacketSize = 64;
-    dev->idVendor = PSPDL_USB_VID;
-    dev->idProduct = PSPDL_USB_PID;
-    dev->bcdDevice = 0x0100;
-    dev->iManufacturer = 0;
-    dev->iProduct = 1;
-    dev->iSerialNumber = 0;
-    dev->bNumConfigurations = 1;
-
-    // Build the Configuration Descriptor
-    struct ConfigDescriptor *conf = (struct ConfigDescriptor *)g_usb_data.confdesc.desc;
-    conf->bLength = 9;
-    conf->bDescriptorType = 2; // Configuration
-    conf->wTotalLength = 9 + 9 + 7 + 7; // Config(9) + Interface(9) + 2*Endpoint(7)
-    conf->bNumInterfaces = 1;
-    conf->bConfigurationValue = 1;
-    conf->iConfiguration = 0;
-    conf->bmAttributes = 0xC0; // Self-powered
-    conf->bMaxPower = 0;
-
-    // Build the Interface Descriptor
-    struct InterfaceDescriptor *inf = (struct InterfaceDescriptor *)g_usb_data.interdesc.desc;
-    inf->bLength = 9;
-    inf->bDescriptorType = 4; // Interface
-    inf->bInterfaceNumber = 0;
-    inf->bAlternateSetting = 0;
-    inf->bNumEndpoints = 2;
-    inf->bInterfaceClass = 0xFF;
-    inf->bInterfaceSubClass = 0xFF;
-    inf->bInterfaceProtocol = 0xFF;
-    inf->iInterface = 0;
-
-    // Build Endpoint Descriptors
-    struct EndpointDescriptor *ep_in = (struct EndpointDescriptor *)g_usb_data.endp[0].desc;
-    ep_in->bLength = 7;
-    ep_in->bDescriptorType = 5; // Endpoint
-    ep_in->bEndpointAddress = 0x80 | EP_IN; // IN
-    ep_in->bmAttributes = 2; // Bulk
-    ep_in->wMaxPacketSize = 64;
-    ep_in->bInterval = 0;
-
-    struct EndpointDescriptor *ep_out = (struct EndpointDescriptor *)g_usb_data.endp[1].desc;
-    ep_out->bLength = 7;
-    ep_out->bDescriptorType = 5; // Endpoint
-    ep_out->bEndpointAddress = EP_OUT; // OUT
-    ep_out->bmAttributes = 2; // Bulk
-    ep_out->wMaxPacketSize = 64;
-    ep_out->bInterval = 0;
 
     // Link everything up in the UsbData structure
-    g_usb_data.config.pconfdesc = conf;
+    g_usb_data.config.pconfdesc = &g_conf_desc;
     g_usb_data.config.pinterfaces = &g_usb_data.interfaces;
     g_usb_data.config.pinterdesc = &g_usb_data.interdesc;
     g_usb_data.config.pendp = &g_usb_data.endp[0];
@@ -227,14 +192,19 @@ static int pspdl_usb_init(void)
     g_usb_data.interfaces.intcount = 1;
     g_usb_data.interdesc.pendp = &g_usb_data.endp[0];
 
+    // Copy interface and endpoints to internal padded space
+    memcpy(g_usb_data.interdesc.desc, &g_int_desc, sizeof(g_int_desc));
+    memcpy(g_usb_data.endp[0].desc, &g_ep_in_desc, sizeof(g_ep_in_desc));
+    memcpy(g_usb_data.endp[1].desc, &g_ep_out_desc, sizeof(g_ep_out_desc));
+
     // Configure g_driver
     g_driver.name = "PSPDevLinkDriver";
     g_driver.endpoints = 3;
     g_driver.endp = g_eps;
     g_driver.intp = &g_interface;
-    g_driver.devp_hi = dev;
+    g_driver.devp_hi = &g_dev_desc;
     g_driver.confp_hi = &g_usb_data.config;
-    g_driver.devp = dev;
+    g_driver.devp = &g_dev_desc;
     g_driver.confp = &g_usb_data.config;
     g_driver.str = (struct StringDescriptor *)g_str_desc;
     g_driver.recvctl = usb_recvctl;
