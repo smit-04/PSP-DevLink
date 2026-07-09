@@ -19,10 +19,14 @@ PSP_MODULE_INFO("pspdl_driver", PSP_MODULE_KERNEL, 1, 0);
 static struct UsbEndpoint g_eps[3];
 static struct UsbInterface g_interface;
 static struct UsbInterfaces g_interfaces;
-static struct StringDescriptor g_str_desc[3] = {
-    { 4, 3, { 0x0409 } },
-    { 24, 3, { 'P', 'S', 'P', ' ', 'D', 'e', 'v', 'e', 'l', 'o', 'p' } },
-    { 22, 3, { 'P', 'S', 'P', 'D', 'e', 'v', 'L', 'i', 'n', 'k' } }
+// Tightly packed string descriptors (LangID, Manufacturer, Product)
+static unsigned char g_str_desc[] = {
+    // String 0: Language IDs (0x0409 English US)
+    4, 3, 0x09, 0x04,
+    // String 1: Manufacturer ("PSP")
+    8, 3, 'P', 0, 'S', 0, 'P', 0,
+    // String 2: Product ("PSPDevLink")
+    22, 3, 'P', 0, 'S', 0, 'P', 0, 'D', 0, 'e', 0, 'v', 0, 'L', 0, 'i', 0, 'n', 0, 'k', 0
 };
 static struct UsbDriver g_driver;
 
@@ -232,7 +236,7 @@ static int pspdl_usb_init(void)
     g_driver.confp_hi = &g_usb_data.config;
     g_driver.devp = dev;
     g_driver.confp = &g_usb_data.config;
-    g_driver.str = &g_str_desc[0];
+    g_driver.str = (struct StringDescriptor *)g_str_desc;
     g_driver.recvctl = usb_recvctl;
     g_driver.func28 = usb_func28;
     g_driver.attach = usb_attach;
