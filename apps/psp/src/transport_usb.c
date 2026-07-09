@@ -146,21 +146,5 @@ PSPDL_TransportResult transport_shutdown(void)
         g_driver_mod = -1;
     }
 
-    if (g_usbbd_mod >= 0)
-    {
-        int status = 0;
-        sceKernelStopModule(g_usbbd_mod, 0, NULL, &status, NULL);
-        sceKernelUnloadModule(g_usbbd_mod);
-        g_usbbd_mod = -1;
-    }
-
-    if (g_usb_mod >= 0)
-    {
-        int status = 0;
-        sceKernelStopModule(g_usb_mod, 0, NULL, &status, NULL);
-        sceKernelUnloadModule(g_usb_mod);
-        g_usb_mod = -1;
-    }
-
     return PSPDL_TRANSPORT_OK;
 }
