@@ -1,6 +1,8 @@
 #include "protocol/transport.h"
 #include <pspkernel.h>
 #include <pspdebug.h>
+#include <pspusb.h>
+#include <pspusbbus.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -8,13 +10,31 @@
 
 // Reference to global variables declared in main.c
 extern char g_status_msg[256];
-int g_mock_mode = 0; // Define it here instead of extern since it seems it was missing or private
+int g_mock_mode = 0;
 
+static SceUID g_usb_mod = -1;
+static SceUID g_usbbd_mod = -1;
 static SceUID g_driver_mod = -1;
 static SceUID g_io_fd = -1;
 
 PSPDL_TransportResult transport_initialize(const char *launch_path)
 {
+    // 1. Load system USB core modules from flash0.
+    // If already loaded, we ignore the error.
+    g_usb_mod = sceKernelLoadModule("flash0:/kd/usb.prx", 0, NULL);
+    if (g_usb_mod >= 0)
+    {
+        int status = 0;
+        sceKernelStartModule(g_usb_mod, 0, NULL, &status, NULL);
+    }
+
+    g_usbbd_mod = sceKernelLoadModule("flash0:/kd/usbbd.prx", 0, NULL);
+    if (g_usbbd_mod >= 0)
+    {
+        int status = 0;
+        sceKernelStartModule(g_usbbd_mod, 0, NULL, &status, NULL);
+    }
+
     // Try to open the driver directly if it's already loaded
     g_io_fd = sceIoOpen("pspdl0:", PSP_O_RDWR, 0777);
     
@@ -57,6 +77,11 @@ PSPDL_TransportResult transport_initialize(const char *launch_path)
         return PSPDL_TRANSPORT_OK;
     }
 
+    // Start USB hardware and activate our driver on the bus
+    sceUsbStart(PSP_USBBUS_DRIVERNAME, 0, 0);
+    sceUsbStart("PSPDevLink", 0, 0);
+    sceUsbActivate(0x011A); // Use the custom PID we registered (0x011A)
+
     snprintf(g_status_msg, sizeof(g_status_msg), "Waiting for Host...");
     return PSPDL_TRANSPORT_OK;
 }
@@ -98,11 +123,19 @@ PSPDL_TransportResult transport_receive(void *buffer, size_t max_size, size_t *o
 
 PSPDL_TransportResult transport_shutdown(void)
 {
-    if (!g_mock_mode && g_io_fd >= 0)
+    if (!g_mock_mode)
     {
-        sceIoIoctl(g_io_fd, PSPDL_IOCTL_SHUTDOWN, NULL, 0, NULL, 0);
-        sceIoClose(g_io_fd);
-        g_io_fd = -1;
+        // Deactivate and stop the USB hardware
+        sceUsbDeactivate(0x011A);
+        sceUsbStop("PSPDevLink", 0, 0);
+        sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0);
+
+        if (g_io_fd >= 0)
+        {
+            sceIoIoctl(g_io_fd, PSPDL_IOCTL_SHUTDOWN, NULL, 0, NULL, 0);
+            sceIoClose(g_io_fd);
+            g_io_fd = -1;
+        }
     }
 
     if (g_driver_mod >= 0)
@@ -112,5 +145,22 @@ PSPDL_TransportResult transport_shutdown(void)
         sceKernelUnloadModule(g_driver_mod);
         g_driver_mod = -1;
     }
+
+    if (g_usbbd_mod >= 0)
+    {
+        int status = 0;
+        sceKernelStopModule(g_usbbd_mod, 0, NULL, &status, NULL);
+        sceKernelUnloadModule(g_usbbd_mod);
+        g_usbbd_mod = -1;
+    }
+
+    if (g_usb_mod >= 0)
+    {
+        int status = 0;
+        sceKernelStopModule(g_usb_mod, 0, NULL, &status, NULL);
+        sceKernelUnloadModule(g_usb_mod);
+        g_usb_mod = -1;
+    }
+
     return PSPDL_TRANSPORT_OK;
 }
