@@ -123,28 +123,8 @@ PSPDL_TransportResult transport_receive(void *buffer, size_t max_size, size_t *o
 
 PSPDL_TransportResult transport_shutdown(void)
 {
-    if (!g_mock_mode)
-    {
-        // Deactivate and stop the USB hardware
-        sceUsbDeactivate(0x011A);
-        sceUsbStop("PSPDevLink", 0, 0);
-        sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0);
-
-        if (g_io_fd >= 0)
-        {
-            sceIoIoctl(g_io_fd, PSPDL_IOCTL_SHUTDOWN, NULL, 0, NULL, 0);
-            sceIoClose(g_io_fd);
-            g_io_fd = -1;
-        }
-    }
-
-    if (g_driver_mod >= 0)
-    {
-        int status = 0;
-        sceKernelStopModule(g_driver_mod, 0, NULL, &status, NULL);
-        sceKernelUnloadModule(g_driver_mod);
-        g_driver_mod = -1;
-    }
-
+    // Let the PSP OS automatically clean up open file descriptors, USB drivers, 
+    // and kernel modules upon sceKernelExitGame(). Manual teardown of low-level 
+    // USB structures often triggers kernel race conditions on exit.
     return PSPDL_TRANSPORT_OK;
 }
