@@ -68,19 +68,10 @@ PSPDL_TransportResult transport_initialize(const char *launch_path)
         }
     }
 
-    // Initialize the USB driver through IOCTL
-    int ret = sceIoIoctl(g_io_fd, PSPDL_IOCTL_INIT, NULL, 0, NULL, 0);
-    if (ret < 0)
-    {
-        snprintf(g_status_msg, sizeof(g_status_msg), "IOCTL INIT fail (0x%08X). Mock Mode.", (unsigned int)ret);
-        g_mock_mode = 1;
-        return PSPDL_TRANSPORT_OK;
-    }
-
     // Start USB hardware and activate our driver on the bus
     int usb_start_bus = sceUsbStart(PSP_USBBUS_DRIVERNAME, 0, 0);
     int usb_start_drv = sceUsbStart("PSPDevLinkDriver", 0, 0);
-    int usb_act = sceUsbActivate(0x011A); // Use the custom PID we registered (0x011A)
+    int usb_act = sceUsbActivate(0x1C9A); // Sony licensed VID sub-ID for PSP
 
     if (usb_start_bus < 0 || usb_start_drv < 0 || usb_act < 0)
     {
