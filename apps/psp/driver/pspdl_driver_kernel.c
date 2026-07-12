@@ -145,7 +145,8 @@ struct EndpointDescriptor g_endpdesc_full[3] = {
 };
 
 /* ----- UsbData scratch buffers (hi-speed [0] and full-speed [1]) ----- */
-struct UsbData g_usbdata[2];
+/* MUST be 64-byte aligned for PSP USB DMA engine compatibility           */
+struct UsbData g_usbdata[2] __attribute__((aligned(64)));
 
 /* ----- USB Event callbacks ----- */
 static int usb_request(int arg1, int arg2, struct DeviceRequest *req)
@@ -223,6 +224,10 @@ static int start_func(int size, void *p)
     g_usb_driver.confp_hi = &g_usbdata[0].config;
     g_usb_driver.devp     = g_usbdata[1].devdesc;
     g_usb_driver.confp    = &g_usbdata[1].config;
+
+    /* CRITICAL: Flush ALL descriptor data from CPU cache to DRAM.
+     * Without this, the USB DMA engine reads stale zeros and the kernel panics. */
+    sceKernelDcacheWritebackRange(g_usbdata, sizeof(g_usbdata));
 
     return 0;
 }
@@ -321,10 +326,19 @@ static PspIoDrv g_io_drv = { "pspdl", 0x10, 0x800, "PSPDevLink", &g_io_funcs };
 
 int module_start(SceSize args, void *argp)
 {
+    /* Pre-initialize g_usbdata so devp_hi/devp are NEVER NULL.
+     * The kernel may look at the driver struct before start_func is called.
+     * A NULL devp causes an immediate kernel panic (null pointer dereference). */
+    memset(g_usbdata, 0, sizeof(g_usbdata));
+    memcpy(g_usbdata[0].devdesc, &g_devdesc_hi,   sizeof(g_devdesc_hi));
+    memcpy(g_usbdata[1].devdesc, &g_devdesc_full,  sizeof(g_devdesc_full));
+    g_usb_driver.devp_hi  = g_usbdata[0].devdesc;
+    g_usb_driver.confp_hi = &g_usbdata[0].config;
+    g_usb_driver.devp     = g_usbdata[1].devdesc;
+    g_usb_driver.confp    = &g_usbdata[1].config;
+    sceKernelDcacheWritebackRange(g_usbdata, sizeof(g_usbdata));
+
     sceIoAddDrv(&g_io_drv);
-    /* Register the USB driver. devp_hi/confp_hi/devp/confp are NULL here.
-     * The kernel will call start_func when sceUsbStart() is invoked from user mode,
-     * at which point those pointers are set. This is the correct sequence. */
     sceUsbbdRegister(&g_usb_driver);
     return 0;
 }
