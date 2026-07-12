@@ -7,7 +7,9 @@
 #include <pspusbbus.h>
 #include <string.h>
 
+#include "../src/usb_identity.h"
 #include "pspdl_ioctl.h"
+
 
 PSP_MODULE_INFO("pspdl_driver", PSP_MODULE_KERNEL, 1, 0);
 
@@ -46,7 +48,7 @@ struct UsbInterface g_intp = { 0xFFFFFFFF, 0, 1 };
 struct DeviceDescriptor g_devdesc_hi = {
     .bLength=18,.bDescriptorType=1,.bcdUSB=0x200,
     .bDeviceClass=0,.bDeviceSubClass=0,.bDeviceProtocol=0,
-    .bMaxPacketSize=64,.idVendor=0,.idProduct=0,.bcdDevice=0x100,
+    .bMaxPacketSize=64,.idVendor=PSPDL_USB_VENDOR_ID,.idProduct=PSPDL_USB_PRODUCT_ID,.bcdDevice=0x100,
     .iManufacturer=0,.iProduct=0,.iSerialNumber=0,.bNumConfigurations=1,
 };
 struct ConfigDescriptor g_confdesc_hi = {
@@ -67,7 +69,7 @@ struct EndpointDescriptor g_endpdesc_hi[3] = {
 struct DeviceDescriptor g_devdesc_full = {
     .bLength=18,.bDescriptorType=1,.bcdUSB=0x200,
     .bDeviceClass=0,.bDeviceSubClass=0,.bDeviceProtocol=0,
-    .bMaxPacketSize=64,.idVendor=0,.idProduct=0,.bcdDevice=0x100,
+    .bMaxPacketSize=64,.idVendor=PSPDL_USB_VENDOR_ID,.idProduct=PSPDL_USB_PRODUCT_ID,.bcdDevice=0x100,
     .iManufacturer=0,.iProduct=0,.iSerialNumber=0,.bNumConfigurations=1,
 };
 struct ConfigDescriptor g_confdesc_full = {

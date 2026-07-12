@@ -5,7 +5,6 @@
 set -e
 
 EBOOT_SRC="$(dirname "$0")/apps/psp/EBOOT.PBP"
-DEST_DIR="/mnt/c/Users/smit0/Desktop/PSP_COPY"
 
 echo "============================================"
 echo "   PSP DevLink — EBOOT Copy Helper"
@@ -45,5 +44,5 @@ else
     echo "  Dest   : [PSP Drive]\PSP\GAME\PSPDevLink\EBOOT.PBP"
     echo ""
     echo "On Windows, you can also find the EBOOT at:"
-    echo "  C:\\Users\\smit0\\.gemini\\antigravity\\scratch\\PSP-DevLink\\apps\\psp\\EBOOT.PBP"
+    echo "  <repo_root>\\apps\\psp\\EBOOT.PBP"
 fi

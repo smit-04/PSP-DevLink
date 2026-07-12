@@ -6,10 +6,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "usb_identity.h"
 #include "../driver/pspdl_ioctl.h"
 
 // Reference to global variables declared in main.c
-extern char g_status_msg[256];
+extern char g_status_msg[128];
 int g_mock_mode = 0;
 
 static SceUID g_usb_mod = -1;
@@ -19,28 +20,15 @@ static SceUID g_io_fd = -1;
 
 PSPDL_TransportResult transport_initialize(const char *launch_path)
 {
-    // 1. Load system USB core modules from flash0.
-    // If already loaded, we ignore the error.
-    g_usb_mod = sceKernelLoadModule("flash0:/kd/usb.prx", 0, NULL);
-    if (g_usb_mod >= 0)
-    {
-        int status = 0;
-        sceKernelStartModule(g_usb_mod, 0, NULL, &status, NULL);
-    }
+    // The USB system modules (usb.prx, usbbd.prx) are loaded by the CFW at boot.
+    // Do NOT try to reload them — on CFW 6.60 this can cause conflicts.
 
-    g_usbbd_mod = sceKernelLoadModule("flash0:/kd/usbbd.prx", 0, NULL);
-    if (g_usbbd_mod >= 0)
-    {
-        int status = 0;
-        sceKernelStartModule(g_usbbd_mod, 0, NULL, &status, NULL);
-    }
-
-    // Try to open the driver directly if it's already loaded
+    // Open the driver if it's already in memory from a previous run
     g_io_fd = sceIoOpen("pspdl0:", PSP_O_RDWR, 0777);
-    
+
     if (g_io_fd < 0)
     {
-        // Try to load the PRX from the same directory as the EBOOT
+        // Load the PRX from the game directory
         g_driver_mod = sceKernelLoadModule("ms0:/PSP/GAME/PSPDevLink/pspdl_driver.prx", 0, NULL);
         if (g_driver_mod < 0)
         {
@@ -57,8 +45,7 @@ PSPDL_TransportResult transport_initialize(const char *launch_path)
             g_mock_mode = 1;
             return PSPDL_TRANSPORT_OK;
         }
-        
-        // Open the driver now that it is started
+
         g_io_fd = sceIoOpen("pspdl0:", PSP_O_RDWR, 0777);
         if (g_io_fd < 0)
         {
@@ -68,9 +55,7 @@ PSPDL_TransportResult transport_initialize(const char *launch_path)
         }
     }
 
-    // Step 1: Register the USB driver via IOCTL (safe — avoids conflicting with
-    // any existing USB session that was active during file copy).
-    // This calls sceUsbbdRegister inside the kernel PRX.
+    // Register USB driver via IOCTL (lazy — happens here, not at PRX load time)
     int init_ret = sceIoIoctl(g_io_fd, PSPDL_IOCTL_INIT, NULL, 0, NULL, 0);
     if (init_ret < 0)
     {
@@ -79,31 +64,29 @@ PSPDL_TransportResult transport_initialize(const char *launch_path)
         return PSPDL_TRANSPORT_OK;
     }
 
-    // Step 2: Tear down any existing USB session (e.g. stale Mass Storage connection).
-    // Errors are expected and safe to ignore — we just want a clean slate.
-    sceUsbDeactivate(0);
-    sceUsbStop("USBStorDriver", 0, 0);
-    sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0);
-    sceKernelDelayThread(100000); // 100ms: let the USB bus settle after teardown
-
-    // Step 3: Start USB hardware and activate our driver cleanly.
+    // Start the USB bus and our driver, then activate with the standard PSP PID.
+    // The standard PID (0x1C9A) is CFW-safe. Custom PIDs can be rejected by CFW hooks.
     int usb_start_bus = sceUsbStart(PSP_USBBUS_DRIVERNAME, 0, 0);
     int usb_start_drv = sceUsbStart("PSPDevLinkDriver", 0, 0);
-    sceKernelDelayThread(200000); // 200ms: let start_func complete before activating
-    int usb_act = sceUsbActivate(0x1C9A); // Use standard PSP PID (CFW-safe)
+    sceKernelDelayThread(200000); // 200ms: let start_func complete
+    int usb_act = sceUsbActivate(PSPDL_USB_PRODUCT_ID);
+
 
     if (usb_start_bus < 0 || usb_start_drv < 0 || usb_act < 0)
     {
-        snprintf(g_status_msg, sizeof(g_status_msg), "USB Start Err (Bus:0x%X, Drv:0x%X, Act:0x%X)", 
-                 (unsigned int)usb_start_bus, (unsigned int)usb_start_drv, (unsigned int)usb_act);
+        snprintf(g_status_msg, sizeof(g_status_msg),
+                 "USB Err Bus:0x%X Drv:0x%X Act:0x%X",
+                 (unsigned int)usb_start_bus,
+                 (unsigned int)usb_start_drv,
+                 (unsigned int)usb_act);
     }
     else
     {
         snprintf(g_status_msg, sizeof(g_status_msg), "Waiting for Host...");
     }
     return PSPDL_TRANSPORT_OK;
-
 }
+
 
 PSPDL_TransportResult transport_send(const void *data, size_t size)
 {

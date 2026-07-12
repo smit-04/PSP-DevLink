@@ -1,8 +1,8 @@
 #!/bin/bash
-export PSPDEV=/home/smit0/pspdev
+export PSPDEV="${PSPDEV:-$HOME/pspdev}"
 export PATH="$PSPDEV/bin:$PATH"
 
-cd /mnt/c/Users/smit0/.gemini/antigravity/scratch/PSP-DevLink/apps/psp
+cd "$(dirname "$0")"
 
 echo "=== PBP file info ==="
 md5sum EBOOT.PBP
@@ -15,11 +15,11 @@ xxd -l 40 EBOOT.PBP
 
 echo ""
 echo "=== Checking .gitattributes for binary handling ==="
-cat /mnt/c/Users/smit0/.gemini/antigravity/scratch/PSP-DevLink/.gitattributes 2>/dev/null || echo "No .gitattributes found"
+cat ../../.gitattributes 2>/dev/null || echo "No .gitattributes found"
 
 echo ""
 echo "=== Git LF/CRLF autocrlf setting ==="
-cd /mnt/c/Users/smit0/.gemini/antigravity/scratch/PSP-DevLink
+cd ../../
 git config core.autocrlf
 
 echo ""

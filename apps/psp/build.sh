@@ -1,8 +1,8 @@
 #!/bin/bash
-export PSPDEV=/home/smit0/pspdev
+export PSPDEV="${PSPDEV:-$HOME/pspdev}"
 export PATH="$PSPDEV/bin:$PATH"
 
-cd /mnt/c/Users/smit0/.gemini/antigravity/scratch/PSP-DevLink/apps/psp
+cd "$(dirname "$0")"
 
 echo "=== Clean build EBOOT ==="
 make clean
