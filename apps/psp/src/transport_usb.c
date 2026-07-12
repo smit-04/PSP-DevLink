@@ -71,7 +71,9 @@ PSPDL_TransportResult transport_initialize(const char *launch_path)
     // Start USB hardware and activate our driver on the bus
     int usb_start_bus = sceUsbStart(PSP_USBBUS_DRIVERNAME, 0, 0);
     int usb_start_drv = sceUsbStart("PSPDevLinkDriver", 0, 0);
-    int usb_act = sceUsbActivate(0x1C9A); // Sony licensed VID sub-ID for PSP
+    /* Small delay to let the bus driver settle before activating */
+    sceKernelDelayThread(250000); // 250ms
+    int usb_act = sceUsbActivate(0x011A); // Our custom PSP USB PID
 
     if (usb_start_bus < 0 || usb_start_drv < 0 || usb_act < 0)
     {

@@ -23,6 +23,12 @@ PSP_MODULE_INFO("pspdl_driver", PSP_MODULE_KERNEL, 1, 0);
 #define EP_OUT    2
 #define EP_ASYNC  3
 
+/* USB event flag bits */
+#define USB_EVENT_ATTACH  0x01
+#define USB_EVENT_DETACH  0x02
+
+static SceUID g_usb_event = -1;
+
 /* ----- String Descriptor (tightly packed raw bytes, USB format) ----- */
 /* The kernel parses these by jumping bLength bytes forward each time.   */
 /* Using struct[] would add padding and corrupt the address arithmetic.  */
@@ -154,11 +160,16 @@ static int func28(int arg1, int arg2, int arg3)
 
 static int usb_attach(int speed, void *arg2, void *arg3)
 {
+    /* Signal the event flag from interrupt/callback context safely */
+    if (g_usb_event >= 0)
+        sceKernelSetEventFlag(g_usb_event, USB_EVENT_ATTACH);
     return 0;
 }
 
 static int usb_detach(int arg1, int arg2, int arg3)
 {
+    if (g_usb_event >= 0)
+        sceKernelSetEventFlag(g_usb_event, USB_EVENT_DETACH);
     return 0;
 }
 
@@ -167,6 +178,10 @@ static int usb_detach(int arg1, int arg2, int arg3)
  * exactly as the reference usbhostfs driver does in its start_func. */
 static int start_func(int size, void *p)
 {
+    /* Create event flag for safe attach/detach signaling from interrupt context */
+    if (g_usb_event < 0)
+        g_usb_event = sceKernelCreateEventFlag("PSPDLUsbEvent", 0x200, 0, NULL);
+
     memset(g_usbdata, 0, sizeof(g_usbdata));
 
     /* Hi-speed */
@@ -214,6 +229,10 @@ static int start_func(int size, void *p)
 
 static int stop_func(int size, void *p)
 {
+    if (g_usb_event >= 0) {
+        sceKernelDeleteEventFlag(g_usb_event);
+        g_usb_event = -1;
+    }
     return 0;
 }
 
@@ -253,6 +272,8 @@ static int pspdl_io_ioctl(PspIoDrvFileArg *arg, unsigned int cmd, void *indata, 
             int size = a->size;
             if (size > (int)sizeof(g_tx_buf)) size = sizeof(g_tx_buf);
             memcpy(g_tx_buf, a->data, size);
+            /* CRITICAL: Flush CPU cache before DMA transfer to prevent kernel panic */
+            sceKernelDcacheWritebackRange(g_tx_buf, size);
             struct UsbdDeviceReq req;
             memset(&req, 0, sizeof(req));
             req.endp = &g_endp[EP_IN];
@@ -267,6 +288,8 @@ static int pspdl_io_ioctl(PspIoDrvFileArg *arg, unsigned int cmd, void *indata, 
             struct pspdl_recv_args *a = (struct pspdl_recv_args *)indata;
             int size = a->size;
             if (size > (int)sizeof(g_rx_buf)) size = sizeof(g_rx_buf);
+            /* CRITICAL: Invalidate CPU cache before DMA writes to prevent stale reads */
+            sceKernelDcacheInvalidateRange(g_rx_buf, size);
             struct UsbdDeviceReq req;
             memset(&req, 0, sizeof(req));
             req.endp = &g_endp[EP_OUT];
