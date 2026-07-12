@@ -226,8 +226,19 @@ static int start_func(int size, void *p)
     g_usb_driver.confp    = &g_usbdata[1].config;
 
     /* CRITICAL: Flush ALL descriptor data from CPU cache to DRAM.
-     * Without this, the USB DMA engine reads stale zeros and the kernel panics. */
+     * Without this, the USB DMA engine reads stale zeros and the kernel panics on enumeration. */
     sceKernelDcacheWritebackRange(g_usbdata, sizeof(g_usbdata));
+    sceKernelDcacheWritebackRange(g_endp, sizeof(g_endp));
+    sceKernelDcacheWritebackRange(&g_intp, sizeof(g_intp));
+    /* Also flush the raw descriptor structs since the bus driver links to them */
+    sceKernelDcacheWritebackRange(&g_devdesc_hi, sizeof(g_devdesc_hi));
+    sceKernelDcacheWritebackRange(&g_devdesc_full, sizeof(g_devdesc_full));
+    sceKernelDcacheWritebackRange(&g_confdesc_hi, sizeof(g_confdesc_hi));
+    sceKernelDcacheWritebackRange(&g_confdesc_full, sizeof(g_confdesc_full));
+    sceKernelDcacheWritebackRange(&g_interdesc_hi, sizeof(g_interdesc_hi));
+    sceKernelDcacheWritebackRange(&g_interdesc_full, sizeof(g_interdesc_full));
+    sceKernelDcacheWritebackRange(g_endpdesc_hi, sizeof(g_endpdesc_hi));
+    sceKernelDcacheWritebackRange(g_endpdesc_full, sizeof(g_endpdesc_full));
 
     return 0;
 }
@@ -336,7 +347,8 @@ int module_start(SceSize args, void *argp)
     g_usb_driver.confp_hi = &g_usbdata[0].config;
     g_usb_driver.devp     = g_usbdata[1].devdesc;
     g_usb_driver.confp    = &g_usbdata[1].config;
-    sceKernelDcacheWritebackRange(g_usbdata, sizeof(g_usbdata));
+    /* Flush everything so the kernel never reads stale cache */
+    sceKernelDcacheWritebackAll();
 
     sceIoAddDrv(&g_io_drv);
     sceUsbbdRegister(&g_usb_driver);
