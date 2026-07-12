@@ -68,12 +68,29 @@ PSPDL_TransportResult transport_initialize(const char *launch_path)
         }
     }
 
-    // Start USB hardware and activate our driver on the bus
+    // Step 1: Register the USB driver via IOCTL (safe — avoids conflicting with
+    // any existing USB session that was active during file copy).
+    // This calls sceUsbbdRegister inside the kernel PRX.
+    int init_ret = sceIoIoctl(g_io_fd, PSPDL_IOCTL_INIT, NULL, 0, NULL, 0);
+    if (init_ret < 0)
+    {
+        snprintf(g_status_msg, sizeof(g_status_msg), "USB Reg fail (0x%08X). Mock Mode.", (unsigned int)init_ret);
+        g_mock_mode = 1;
+        return PSPDL_TRANSPORT_OK;
+    }
+
+    // Step 2: Tear down any existing USB session (e.g. stale Mass Storage connection).
+    // Errors are expected and safe to ignore — we just want a clean slate.
+    sceUsbDeactivate(0);
+    sceUsbStop("USBStorDriver", 0, 0);
+    sceUsbStop(PSP_USBBUS_DRIVERNAME, 0, 0);
+    sceKernelDelayThread(100000); // 100ms: let the USB bus settle after teardown
+
+    // Step 3: Start USB hardware and activate our driver cleanly.
     int usb_start_bus = sceUsbStart(PSP_USBBUS_DRIVERNAME, 0, 0);
     int usb_start_drv = sceUsbStart("PSPDevLinkDriver", 0, 0);
-    /* Small delay to let the bus driver settle before activating */
-    sceKernelDelayThread(250000); // 250ms
-    int usb_act = sceUsbActivate(0x011A); // Our custom PSP USB PID
+    sceKernelDelayThread(200000); // 200ms: let start_func complete before activating
+    int usb_act = sceUsbActivate(0x1C9A); // Use standard PSP PID (CFW-safe)
 
     if (usb_start_bus < 0 || usb_start_drv < 0 || usb_act < 0)
     {
@@ -85,6 +102,7 @@ PSPDL_TransportResult transport_initialize(const char *launch_path)
         snprintf(g_status_msg, sizeof(g_status_msg), "Waiting for Host...");
     }
     return PSPDL_TRANSPORT_OK;
+
 }
 
 PSPDL_TransportResult transport_send(const void *data, size_t size)
