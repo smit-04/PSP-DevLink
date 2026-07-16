@@ -7,9 +7,8 @@
 #include <pspusbbus.h>
 #include <string.h>
 
-#include "../src/usb_identity.h"
 #include "pspdl_ioctl.h"
-
+#include "../src/usb_identity.h"
 
 PSP_MODULE_INFO("pspdl_driver", PSP_MODULE_KERNEL, 1, 0);
 

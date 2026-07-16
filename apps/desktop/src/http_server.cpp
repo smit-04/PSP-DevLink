@@ -289,25 +289,12 @@ void HttpServer::handle_client(int client_fd)
         std::string e_git = get_post_param(body, "enable_git");
         std::string e_notif = get_post_param(body, "enable_notif");
 
-        try {
-            if (!tel_str.empty()) m_config.telemetry_interval_ms = std::stoi(tel_str);
-            if (!git_str.empty()) m_config.git_interval_ms = std::stoi(git_str);
-            if (!e_git.empty()) m_config.enable_git = (e_git == "1");
-            if (!e_notif.empty()) m_config.enable_notif = (e_notif == "1");
+        if (!tel_str.empty()) m_config.telemetry_interval_ms = std::stoi(tel_str);
+        if (!git_str.empty()) m_config.git_interval_ms = std::stoi(git_str);
+        if (!e_git.empty()) m_config.enable_git = (e_git == "1");
+        if (!e_notif.empty()) m_config.enable_notif = (e_notif == "1");
 
-            m_config.save();
-        } catch (const std::exception& e) {
-            std::string resp_json = "{ \"result\": \"invalid_value\" }";
-            response << "HTTP/1.1 400 Bad Request\r\n"
-                     << "Content-Type: application/json\r\n"
-                     << "Content-Length: " << resp_json.length() << "\r\n"
-                     << "Connection: close\r\n\r\n"
-                     << resp_json;
-            std::string response_str = response.str();
-            send(client_fd, response_str.c_str(), response_str.length(), 0);
-            close(client_fd);
-            return;
-        }
+        m_config.save();
 
         std::string resp_json = "{ \"result\": \"success\" }";
         response << "HTTP/1.1 200 OK\r\n"

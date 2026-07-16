@@ -6,15 +6,13 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "usb_identity.h"
 #include "../driver/pspdl_ioctl.h"
+#include "usb_identity.h"
 
 // Reference to global variables declared in main.c
 extern char g_status_msg[128];
 int g_mock_mode = 0;
 
-static SceUID g_usb_mod = -1;
-static SceUID g_usbbd_mod = -1;
 static SceUID g_driver_mod = -1;
 static SceUID g_io_fd = -1;
 
@@ -70,7 +68,6 @@ PSPDL_TransportResult transport_initialize(const char *launch_path)
     int usb_start_drv = sceUsbStart("PSPDevLinkDriver", 0, 0);
     sceKernelDelayThread(200000); // 200ms: let start_func complete
     int usb_act = sceUsbActivate(PSPDL_USB_PRODUCT_ID);
-
 
     if (usb_start_bus < 0 || usb_start_drv < 0 || usb_act < 0)
     {

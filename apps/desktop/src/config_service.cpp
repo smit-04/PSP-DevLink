@@ -5,12 +5,12 @@
 #include <cctype>
 
 ConfigService::ConfigService(const std::string &filepath)
-    : telemetry_interval_ms(1000),
+    : m_filepath(filepath),
+      telemetry_interval_ms(1000),
       git_interval_ms(3000),
       notif_interval_ms(500),
       enable_git(true),
-      enable_notif(true),
-      m_filepath(filepath)
+      enable_notif(true)
 {
 }
 
